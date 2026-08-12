@@ -6,9 +6,9 @@
     <title>Sistem Absensi Karyawan</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SweetAlert2 untuk Notifikasi yang Profesional -->
+    <!-- SweetAlert2 untuk Notifikasi -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- FontAwesome (Opsional untuk icon) -->
+    <!-- FontAwesome untuk icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Mencegah highlight biru saat tombol ditekan di HP */
@@ -41,9 +41,7 @@
                 <span id="camera-status" class="flex h-3 w-3 rounded-full bg-green-500"></span>
             </div>
             <div class="relative bg-black aspect-[3/4] w-full flex justify-center items-center">
-                <!-- Video Stream -->
                 <video id="webcam" autoplay playsinline class="object-cover w-full h-full scale-x-[-1]"></video>
-                <!-- Canvas untuk capture (tersembunyi) -->
                 <canvas id="canvas" class="hidden"></canvas>
             </div>
         </div>
@@ -62,11 +60,10 @@
             </button>
         </div>
 
-        <!-- Log Area (Preview Data yang akan dikirim ke Firebase) -->
+        <!-- Log Area -->
         <div class="mt-8">
             <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Log Absensi Hari Ini</h3>
             <div id="log-container" class="space-y-3">
-                <!-- Data absen akan muncul di sini -->
                 <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">Belum ada data absensi</p>
             </div>
         </div>
@@ -78,7 +75,6 @@
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
 
-        // Meminta akses kamera depan (khusus HP)
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
             .then(function(stream) {
                 video.srcObject = stream;
@@ -104,19 +100,86 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // --- 3. LOGIKA ABSENSI ---
+        // --- 3. LOGIKA LOKASI & JARAK (HAVERSINE FORMULA) ---
+        
+        // KOORDINAT TITIK ABSEN (Menggunakan titik yang Anda berikan)
+        const KANTOR_LAT = -6.1923239; 
+        const KANTOR_LNG = 106.9701343; 
+        const RADIUS_MAKSIMAL = 20; // Jarak maksimal dalam meter
+
+        // Fungsi matematika untuk menghitung jarak 2 titik koordinat
+        function hitungJarak(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radius bumi dalam meter
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // Hasil dalam bentuk Meter
+        }
+
+        // Fungsi mengambil foto dari video stream
         function ambilFoto() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            // Mirror canvas agar hasil foto tidak terbalik
             context.translate(canvas.width, 0);
             context.scale(-1, 1);
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            // Convert ke Base64 untuk dikirim ke Firebase/Storage nanti
             return canvas.toDataURL('image/jpeg', 0.8); 
         }
 
+        // --- 4. PROSES ABSEN DENGAN CEK LOKASI ---
         function prosesAbsen(jenis) {
+            // Tampilkan loading saat mencari sinyal GPS
+            Swal.fire({
+                title: 'Mendeteksi Lokasi...',
+                text: 'Mohon tunggu, sedang memastikan posisi Anda.',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            // Meminta akses lokasi user
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        
+                        // Hitung jarak dari titik user ke lokasi yang ditentukan
+                        const jarak = hitungJarak(KANTOR_LAT, KANTOR_LNG, userLat, userLng);
+                        const jarakDibulatkan = Math.round(jarak);
+
+                        // Cek apakah jarak melebihi batas 20 meter
+                        if (jarakDibulatkan > RADIUS_MAKSIMAL) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Di Luar Area Absensi',
+                                text: `Anda terdeteksi berjarak ${jarakDibulatkan} meter dari titik absensi. Maksimal jarak adalah ${RADIUS_MAKSIMAL} meter.`
+                            });
+                            return; // HENTIKAN PROSES JIKA DI LUAR JANGKAUAN
+                        }
+
+                        // JIKA LOKASI VALID, LANJUTKAN CEK JAM
+                        lanjutkanAbsenJam(jenis, jarakDibulatkan);
+                    },
+                    (error) => {
+                        let errorMessage = "Pastikan GPS/Lokasi HP menyala dan izin lokasi diberikan ke web ini.";
+                        if(error.code === 1) errorMessage = "Akses lokasi ditolak oleh pengguna.";
+                        if(error.code === 2) errorMessage = "Sinyal GPS tidak ditemukan.";
+                        if(error.code === 3) errorMessage = "Waktu pencarian lokasi habis (Timeout).";
+                        
+                        Swal.fire('Gagal!', errorMessage, 'error');
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // Paksa cari GPS akurat
+                );
+            } else {
+                Swal.fire('Error', 'Browser HP Anda tidak mendukung fitur Lokasi', 'error');
+            }
+        }
+
+        // --- 5. LOGIKA CEK JAM ---
+        function lanjutkanAbsenJam(jenis, jarakKeKantor) {
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
@@ -125,7 +188,7 @@
             let statusWarna = "";
             let pesanIcon = "success";
 
-            // Validasi Jam Masuk (08:00)
+            // Validasi Jam Masuk (Batas 08:00)
             if (jenis === 'masuk') {
                 if (currentHour > 8 || (currentHour === 8 && currentMinute > 0)) {
                     status = "Terlambat";
@@ -136,51 +199,49 @@
                     statusWarna = "text-green-600 bg-green-50";
                 }
             } 
-            // Validasi Jam Pulang (16:00)
+            // Validasi Jam Pulang (Mulai 16:00)
             else if (jenis === 'pulang') {
                 if (currentHour < 16) {
                     Swal.fire('Belum Waktunya', 'Jam pulang dimulai pukul 16:00.', 'error');
-                    return; // Batalkan proses jika belum jam 16:00
+                    return; // Batalkan jika belum jam 16:00
                 } else {
                     status = "Sesuai Jadwal";
                     statusWarna = "text-blue-600 bg-blue-50";
                 }
             }
 
-            // Ambil Foto
+            // Eksekusi Absen & Ambil Foto
             const fotoBase64 = ambilFoto();
             const waktuAbsen = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-            // Simulasi Data Payload untuk Firebase
             const dataAbsen = {
                 jenis_absen: jenis,
                 waktu: waktuAbsen,
                 status: status,
-                foto: fotoBase64 // Pada praktek aslinya, ini diupload ke Firebase Storage, lalu URL-nya disimpan
+                foto: fotoBase64,
+                jarak: jarakKeKantor
             };
 
             // Tampilkan Notifikasi Sukses
             Swal.fire({
                 icon: pesanIcon,
                 title: `Absen ${jenis.toUpperCase()} Berhasil!`,
-                html: `Jam: <b>${waktuAbsen}</b><br>Status: <b class="${statusWarna.split(' ')[0]}">${status}</b>`,
-                showConfirmButton: false,
-                timer: 2000
+                html: `Jam: <b>${waktuAbsen}</b><br>Status: <b class="${statusWarna.split(' ')[0]}">${status}</b><br>Jarak Akurasi: ${jarakKeKantor} meter`,
+                showConfirmButton: true,
+                confirmButtonColor: '#3085d6',
+                confirmButtonText: 'Tutup'
             });
 
             // Tampilkan di Log UI
             tambahkanKeLog(dataAbsen);
-
-            // TODO: Integrasi Firebase
-            // Jika Firebase sudah siap, panggil function simpan data di sini
-            // contoh: saveToFirebase(dataAbsen);
+            
+            // TODO: Integrasi Firebase di sini nantinya
         }
 
-        // --- 4. UPDATE UI LOG ---
+        // --- 6. UPDATE UI LOG ---
         function tambahkanKeLog(data) {
             document.getElementById('empty-log').style.display = 'none';
             const logContainer = document.getElementById('log-container');
-            
             const cardLog = document.createElement('div');
             cardLog.className = "bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4";
             
@@ -188,7 +249,7 @@
                 <img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border border-slate-200">
                 <div class="flex-1">
                     <p class="font-bold text-sm text-slate-700 capitalize">Absen ${data.jenis_absen}</p>
-                    <p class="text-xs text-slate-500">${data.waktu} WIB</p>
+                    <p class="text-xs text-slate-500">${data.waktu} WIB • Jarak: ${data.jarak}m</p>
                 </div>
                 <div class="px-2 py-1 rounded text-xs font-bold ${
                     data.status === 'Terlambat' ? 'bg-red-100 text-red-600' : 
@@ -198,7 +259,6 @@
                     ${data.status}
                 </div>
             `;
-            // Insert di paling atas
             logContainer.insertBefore(cardLog, logContainer.firstChild);
         }
     </script>
