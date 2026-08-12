@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem Absensi Karyawan</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 untuk Notifikasi yang Profesional -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- FontAwesome (Opsional untuk icon) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Mencegah highlight biru saat tombol ditekan di HP */
+        * { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-700 text-white p-4 shadow-md rounded-b-2xl mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold">Portal Absensi</h1>
+                <p class="text-sm text-blue-200">Divisi Operasional</p>
+            </div>
+            <div class="text-right">
+                <p id="current-date" class="text-sm font-semibold"></p>
+                <p id="current-time" class="text-lg font-bold text-yellow-300"></p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 px-4 pb-8 max-w-md mx-auto w-full">
+        
+        <!-- Camera Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+            <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <span class="text-sm font-semibold text-slate-600"><i class="fas fa-camera mr-2"></i>Kamera Aktif</span>
+                <span id="camera-status" class="flex h-3 w-3 rounded-full bg-green-500"></span>
+            </div>
+            <div class="relative bg-black aspect-[3/4] w-full flex justify-center items-center">
+                <!-- Video Stream -->
+                <video id="webcam" autoplay playsinline class="object-cover w-full h-full scale-x-[-1]"></video>
+                <!-- Canvas untuk capture (tersembunyi) -->
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="prosesAbsen('masuk')" class="flex flex-col items-center justify-center p-4 bg-blue-600 active:bg-blue-700 text-white rounded-2xl shadow-lg transition-transform transform active:scale-95">
+                <i class="fas fa-sign-in-alt text-2xl mb-2"></i>
+                <span class="font-bold text-sm">ABSEN MASUK</span>
+                <span class="text-xs text-blue-200">Batas 08:00</span>
+            </button>
+            <button onclick="prosesAbsen('pulang')" class="flex flex-col items-center justify-center p-4 bg-emerald-600 active:bg-emerald-700 text-white rounded-2xl shadow-lg transition-transform transform active:scale-95">
+                <i class="fas fa-sign-out-alt text-2xl mb-2"></i>
+                <span class="font-bold text-sm">ABSEN PULANG</span>
+                <span class="text-xs text-emerald-200">Mulai 16:00</span>
+            </button>
+        </div>
+
+        <!-- Log Area (Preview Data yang akan dikirim ke Firebase) -->
+        <div class="mt-8">
+            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Log Absensi Hari Ini</h3>
+            <div id="log-container" class="space-y-3">
+                <!-- Data absen akan muncul di sini -->
+                <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">Belum ada data absensi</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. SETUP KAMERA ---
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        // Meminta akses kamera depan (khusus HP)
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+            .then(function(stream) {
+                video.srcObject = stream;
+            })
+            .catch(function(err) {
+                document.getElementById('camera-status').classList.replace('bg-green-500', 'bg-red-500');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Kamera Tidak Ditemukan',
+                    text: 'Pastikan Anda memberikan izin akses kamera pada browser.'
+                });
+            });
+
+        // --- 2. JAM REAL-TIME ---
+        function updateClock() {
+            const now = new Date();
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            const dateOptions = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
+            
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('id-ID', timeOptions);
+            document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', dateOptions);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- 3. LOGIKA ABSENSI ---
+        function ambilFoto() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            // Mirror canvas agar hasil foto tidak terbalik
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Convert ke Base64 untuk dikirim ke Firebase/Storage nanti
+            return canvas.toDataURL('image/jpeg', 0.8); 
+        }
+
+        function prosesAbsen(jenis) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            
+            let status = "";
+            let statusWarna = "";
+            let pesanIcon = "success";
+
+            // Validasi Jam Masuk (08:00)
+            if (jenis === 'masuk') {
+                if (currentHour > 8 || (currentHour === 8 && currentMinute > 0)) {
+                    status = "Terlambat";
+                    statusWarna = "text-red-500 bg-red-50";
+                    pesanIcon = "warning";
+                } else {
+                    status = "Tepat Waktu";
+                    statusWarna = "text-green-600 bg-green-50";
+                }
+            } 
+            // Validasi Jam Pulang (16:00)
+            else if (jenis === 'pulang') {
+                if (currentHour < 16) {
+                    Swal.fire('Belum Waktunya', 'Jam pulang dimulai pukul 16:00.', 'error');
+                    return; // Batalkan proses jika belum jam 16:00
+                } else {
+                    status = "Sesuai Jadwal";
+                    statusWarna = "text-blue-600 bg-blue-50";
+                }
+            }
+
+            // Ambil Foto
+            const fotoBase64 = ambilFoto();
+            const waktuAbsen = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+            // Simulasi Data Payload untuk Firebase
+            const dataAbsen = {
+                jenis_absen: jenis,
+                waktu: waktuAbsen,
+                status: status,
+                foto: fotoBase64 // Pada praktek aslinya, ini diupload ke Firebase Storage, lalu URL-nya disimpan
+            };
+
+            // Tampilkan Notifikasi Sukses
+            Swal.fire({
+                icon: pesanIcon,
+                title: `Absen ${jenis.toUpperCase()} Berhasil!`,
+                html: `Jam: <b>${waktuAbsen}</b><br>Status: <b class="${statusWarna.split(' ')[0]}">${status}</b>`,
+                showConfirmButton: false,
+                timer: 2000
+            });
+
+            // Tampilkan di Log UI
+            tambahkanKeLog(dataAbsen);
+
+            // TODO: Integrasi Firebase
+            // Jika Firebase sudah siap, panggil function simpan data di sini
+            // contoh: saveToFirebase(dataAbsen);
+        }
+
+        // --- 4. UPDATE UI LOG ---
+        function tambahkanKeLog(data) {
+            document.getElementById('empty-log').style.display = 'none';
+            const logContainer = document.getElementById('log-container');
+            
+            const cardLog = document.createElement('div');
+            cardLog.className = "bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4";
+            
+            cardLog.innerHTML = `
+                <img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border border-slate-200">
+                <div class="flex-1">
+                    <p class="font-bold text-sm text-slate-700 capitalize">Absen ${data.jenis_absen}</p>
+                    <p class="text-xs text-slate-500">${data.waktu} WIB</p>
+                </div>
+                <div class="px-2 py-1 rounded text-xs font-bold ${
+                    data.status === 'Terlambat' ? 'bg-red-100 text-red-600' : 
+                    data.status === 'Tepat Waktu' ? 'bg-green-100 text-green-600' : 
+                    'bg-blue-100 text-blue-600'
+                }">
+                    ${data.status}
+                </div>
+            `;
+            // Insert di paling atas
+            logContainer.insertBefore(cardLog, logContainer.firstChild);
+        }
+    </script>
+</body>
+</html>
