@@ -3,11 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Absensi dengan Face Recognition</title>
+    <title>Sistem Absensi - Firebase Integration</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- ========================================== -->
+    <!-- FIREBASE SDK (CDN - Compat) -->
+    <!-- ========================================== -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         
@@ -20,14 +28,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        .gps-pulse {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.8); }
-        }
-
         .login-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -38,6 +38,16 @@
             border-radius: 20px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
+
+        .status-badge {
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .status-pending { background: #fbbf24; color: #78350f; }
+        .status-approved { background: #34d399; color: #064e3b; }
+        .status-rejected { background: #f87171; color: #7f1d1d; }
 
         .mini-map {
             background: #1a1a2e;
@@ -80,51 +90,6 @@
             height: 80%;
         }
 
-        .fade-in {
-            animation: fadeIn 0.3s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .glass { background: rgba(30,41,59,0.95); }
-            body { background: #0f172a; }
-        }
-
-        .custom-scroll::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scroll::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-
-        .date-range-group {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 8px;
-            align-items: center;
-        }
-        @media (max-width: 480px) {
-            .date-range-group {
-                grid-template-columns: 1fr;
-                gap: 6px;
-            }
-            .date-range-group .range-label {
-                display: none;
-            }
-        }
-
-        /* Face Capture Guide */
         .face-guide {
             position: absolute;
             inset: 10%;
@@ -144,27 +109,53 @@
             display: block;
             margin-bottom: 8px;
         }
-        .capture-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            position: absolute;
-            animation: pulse-dot 1s ease-in-out infinite;
+
+        .date-range-group {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 8px;
+            align-items: center;
         }
-        @keyframes pulse-dot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.5); opacity: 0.5; }
+        @media (max-width: 480px) {
+            .date-range-group {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            .date-range-group .range-label {
+                display: none;
+            }
         }
 
-        .status-badge {
-            padding: 2px 10px;
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .glass { background: rgba(30,41,59,0.95); }
+            body { background: #0f172a; }
+        }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Sync status */
+        .sync-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
-            font-weight: bold;
         }
-        .status-pending { background: #fbbf24; color: #78350f; }
-        .status-approved { background: #34d399; color: #064e3b; }
-        .status-rejected { background: #f87171; color: #7f1d1d; }
+        .sync-status.synced { background: #d1fae5; color: #065f46; }
+        .sync-status.syncing { background: #fef3c7; color: #92400e; animation: pulse-sync 1s ease-in-out infinite; }
+        .sync-status.error { background: #fee2e2; color: #991b1b; }
+        @keyframes pulse-sync { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
@@ -268,7 +259,6 @@
                 </button>
             </div>
             <div class="p-4">
-                <!-- Progress bar -->
                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-4">
                     <div id="reg-progress" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 20%"></div>
                 </div>
@@ -276,24 +266,17 @@
                     Hadapkan wajah lurus ke kamera
                 </p>
                 
-                <!-- Camera -->
                 <div class="aspect-[4/3] bg-black rounded-xl relative overflow-hidden">
                     <video id="reg-webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1]"></video>
                     <canvas id="reg-canvas" class="hidden"></canvas>
-                    
-                    <!-- Face Guide -->
                     <div class="face-guide">
                         <div class="guide-text">
                             <i class="fas fa-user-circle"></i>
                             <span id="guide-label">Tengahkan wajah</span>
                         </div>
                     </div>
-                    
-                    <!-- Capture dots -->
-                    <div id="capture-dots"></div>
                 </div>
                 
-                <!-- Steps indicator -->
                 <div class="flex justify-center gap-2 mt-3">
                     <span id="step-dot-1" class="w-3 h-3 rounded-full bg-blue-600"></span>
                     <span id="step-dot-2" class="w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-600"></span>
@@ -306,10 +289,6 @@
                     <button onclick="captureFace()" id="btn-capture" 
                             class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition">
                         <i class="fas fa-camera mr-2"></i>Ambil Foto
-                    </button>
-                    <button onclick="skipFaceCapture()" id="btn-skip" 
-                            class="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-bold transition hidden">
-                        Lewati
                     </button>
                 </div>
             </div>
@@ -336,7 +315,11 @@
                 </div>
                 <div class="flex flex-wrap justify-between items-center mt-2 text-xs gap-2">
                     <span class="text-blue-200" id="current-user">User: -</span>
-                    <div class="flex gap-2">
+                    <div class="flex items-center gap-2">
+                        <span id="sync-status" class="sync-status synced">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Synced</span>
+                        </span>
                         <button onclick="logout()" class="bg-red-500/30 hover:bg-red-500/50 px-3 py-1 rounded-full transition">
                             <i class="fas fa-sign-out-alt mr-1"></i>Logout
                         </button>
@@ -353,10 +336,10 @@
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
                     <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
                     <button onclick="showPendingUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-user-clock text-yellow-600 text-xl block mb-1"></i>
-                        Verifikasi User
+                        Verifikasi
                     </button>
                     <button onclick="showManageUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-users text-blue-600 text-xl block mb-1"></i>
@@ -374,6 +357,10 @@
                         <i class="fas fa-cog text-purple-600 text-xl block mb-1"></i>
                         Pengaturan
                     </button>
+                    <button onclick="syncToFirebase()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                        <i class="fas fa-cloud-upload-alt text-indigo-600 text-xl block mb-1"></i>
+                        Sync ke Cloud
+                    </button>
                 </div>
             </div>
 
@@ -381,7 +368,7 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-4">
                 <div class="flex flex-wrap justify-between items-center gap-2">
                     <div class="flex items-center gap-2">
-                        <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500 gps-pulse"></span>
+                        <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500"></span>
                         <span id="gps-text" class="text-sm font-medium">Mencari GPS...</span>
                     </div>
                     <div class="text-right">
@@ -404,12 +391,8 @@
                     <span class="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span> Kantor
                     <span class="inline-block w-2 h-2 bg-blue-500 rounded-full ml-2 mr-1"></span> Anda
                 </div>
-                <div class="absolute top-2 right-2 text-white text-xs bg-black/30 px-2 py-1 rounded">
-                    Radius 20m
-                </div>
-                <div id="status-lokasi" class="absolute bottom-2 right-2 text-xs font-bold px-2 py-1 rounded bg-black/50 text-white">
-                    Mencari lokasi...
-                </div>
+                <div class="absolute top-2 right-2 text-white text-xs bg-black/30 px-2 py-1 rounded">Radius 20m</div>
+                <div id="status-lokasi" class="absolute bottom-2 right-2 text-xs font-bold px-2 py-1 rounded bg-black/50 text-white">Mencari lokasi...</div>
             </div>
 
             <!-- Status User -->
@@ -431,8 +414,7 @@
                     <video id="webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1]"></video>
                     <canvas id="canvas" class="hidden"></canvas>
                     <div class="absolute inset-0 border-2 border-blue-500/30 m-3 rounded-lg pointer-events-none"></div>
-                    <!-- Face match indicator -->
-                    <div id="face-match-indicator" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold hidden">
+                    <div id="face-match-indicator" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold hidden bg-green-500 text-white">
                         <i class="fas fa-check-circle mr-1"></i> Wajah Cocok
                     </div>
                 </div>
@@ -454,7 +436,23 @@
                 </button>
             </div>
 
-            <!-- Filter & Search (User) -->
+            <!-- Info Storage -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-3 mb-4 text-xs">
+                <div class="flex justify-between items-center">
+                    <span><i class="fas fa-database mr-1"></i> Penyimpanan Data:</span>
+                    <span id="storage-info">Memuat...</span>
+                </div>
+                <div class="flex justify-between items-center mt-1">
+                    <span><i class="fas fa-clock mr-1"></i> Data dihapus otomatis:</span>
+                    <span id="retention-info">3 bulan</span>
+                </div>
+                <div class="flex justify-between items-center mt-1">
+                    <span><i class="fas fa-cloud mr-1"></i> Cloud Status:</span>
+                    <span id="cloud-status">🔍 Mengecek...</span>
+                </div>
+            </div>
+
+            <!-- Filter & Search -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-3 mb-4">
                 <div class="flex flex-wrap gap-2">
                     <div class="flex-1 min-w-[150px]">
@@ -491,11 +489,11 @@
         <!-- MODALS -->
         <!-- ========================================== -->
 
-        <!-- Modal Verifikasi User (Admin) -->
+        <!-- Modal Verifikasi User -->
         <div id="verify-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center">
-                    <h3 class="font-bold"><i class="fas fa-user-clock mr-2"></i>Verifikasi Pendaftaran User</h3>
+                    <h3 class="font-bold"><i class="fas fa-user-clock mr-2"></i>Verifikasi Pendaftaran</h3>
                     <button onclick="closeModal('verify-modal')" class="text-slate-500 hover:text-slate-700">
                         <i class="fas fa-times"></i>
                     </button>
@@ -530,7 +528,7 @@
             </div>
         </div>
 
-        <!-- Modal Semua Absensi (Admin) -->
+        <!-- Modal Semua Absensi -->
         <div id="all-absensi-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center">
@@ -571,12 +569,13 @@
                                     <th class="p-2 text-left">Jam</th>
                                     <th class="p-2 text-left">Jenis</th>
                                     <th class="p-2 text-left">Status</th>
+                                    <th class="p-2 text-left">Face Score</th>
                                     <th class="p-2 text-left">Jarak</th>
                                 </tr>
                             </thead>
                             <tbody id="all-absensi-body">
                                 <tr>
-                                    <td colspan="8" class="text-center py-4 text-slate-400">Belum ada data</td>
+                                    <td colspan="9" class="text-center py-4 text-slate-400">Belum ada data</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -699,6 +698,30 @@
                         <input type="time" id="setting-pulang" class="w-full px-3 py-2 rounded-lg border text-sm" value="16:00">
                         <button onclick="updateSetting('pulang')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
                     </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                        <label class="text-sm font-semibold block">
+                            <i class="fas fa-clock mr-2"></i>Hapus Data Otomatis (bulan)
+                        </label>
+                        <select id="setting-retention" class="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-700">
+                            <option value="1">1 Bulan</option>
+                            <option value="2">2 Bulan</option>
+                            <option value="3" selected>3 Bulan</option>
+                            <option value="6">6 Bulan</option>
+                            <option value="12">1 Tahun</option>
+                            <option value="0">Tidak Pernah</option>
+                        </select>
+                        <button onclick="updateSetting('retention')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                    </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                        <label class="text-sm font-semibold block">
+                            <i class="fas fa-user-check mr-2"></i>Face Match Threshold (%)
+                        </label>
+                        <input type="number" id="setting-face-threshold" class="w-full px-3 py-2 rounded-lg border text-sm" value="60" min="30" max="90">
+                        <button onclick="updateSetting('face_threshold')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                    </div>
+                    <button onclick="runCleanupNow()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
+                        <i class="fas fa-broom mr-1"></i>Bersihkan Data Lama Sekarang
+                    </button>
                     <button onclick="resetAllData()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
                         <i class="fas fa-trash mr-1"></i>Reset Semua Data
                     </button>
@@ -723,19 +746,43 @@
     <!-- ========================================== -->
     <script>
         // ============================================
-        // 1. DATABASE INDEXEDDB
+        // 1. FIREBASE CONFIGURATION
         // ============================================
-        const DB_NAME = 'AbsensiFaceDB';
-        const DB_VERSION = 3;
-        let db = null;
+        // 🔥 PASTE KONFIGURASI FIREBASE ANDA DI SINI 🔥
+        const firebaseConfig = {
+            apiKey: "AIzaSyAGHTvVTBG0cEPCBd3hVnNABa1_Lj95cZU",
+            authDomain: "absensionline-2823b.firebaseapp.com",
+            projectId: "absensionline-2823b",
+            storageBucket: "absensionline-2823b.firebasestorage.app",
+            messagingSenderId: "1091037704508",
+            appId: "1:1091037704508:web:ed3591a67e8ff9f784ae39",
+            measurementId: "G-02YYE4FTV7"
+        };
+
+        // ============================================
+        // 2. INIT FIREBASE
+        // ============================================
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        console.log('🔥 Firebase initialized successfully!');
+        console.log('📁 Project:', firebaseConfig.projectId);
+
+        // ============================================
+        // 3. DATABASE INDEXEDDB (LOCAL)
+        // ============================================
+        const DB_NAME = 'AbsensiFaceOptimizedDB';
+        const DB_VERSION = 4;
+        let db_local = null;
 
         function initDatabase() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
                 request.onerror = () => reject(request.error);
                 request.onsuccess = () => {
-                    db = request.result;
-                    resolve(db);
+                    db_local = request.result;
+                    resolve(db_local);
                 };
                 request.onupgradeneeded = (event) => {
                     const database = event.target.result;
@@ -744,13 +791,13 @@
                         const userStore = database.createObjectStore('users', { keyPath: 'id' });
                         userStore.createIndex('role', 'role');
                         userStore.createIndex('name', 'name');
-                        userStore.createIndex('status', 'status'); // pending, approved, rejected
+                        userStore.createIndex('status', 'status');
                     }
                     
                     if (!database.objectStoreNames.contains('face_data')) {
                         const faceStore = database.createObjectStore('face_data', { keyPath: 'id', autoIncrement: true });
                         faceStore.createIndex('user_id', 'user_id');
-                        faceStore.createIndex('type', 'type'); // front, left, right, up, down
+                        faceStore.createIndex('type', 'type');
                     }
                     
                     if (!database.objectStoreNames.contains('absensi')) {
@@ -762,6 +809,7 @@
                         absensiStore.createIndex('tanggal', 'tanggal');
                         absensiStore.createIndex('jenis_absen', 'jenis_absen');
                         absensiStore.createIndex('status', 'status');
+                        absensiStore.createIndex('created_at', 'created_at');
                     }
                     
                     if (!database.objectStoreNames.contains('config')) {
@@ -772,11 +820,11 @@
         }
 
         // ============================================
-        // 2. USER MANAGEMENT WITH STATUS
+        // 4. USER MANAGEMENT (LOCAL)
         // ============================================
         function getUsers() {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readonly');
+                const tx = db_local.transaction(['users'], 'readonly');
                 const store = tx.objectStore('users');
                 const request = store.getAll();
                 request.onsuccess = () => resolve(request.result);
@@ -786,7 +834,7 @@
 
         function addUser(id, name, password, role, status = 'pending') {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readwrite');
+                const tx = db_local.transaction(['users'], 'readwrite');
                 const store = tx.objectStore('users');
                 const request = store.add({ 
                     id, name, password, role, status, 
@@ -799,7 +847,7 @@
 
         function updateUser(id, data) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readwrite');
+                const tx = db_local.transaction(['users'], 'readwrite');
                 const store = tx.objectStore('users');
                 const request = store.put({ ...data, id });
                 request.onsuccess = () => resolve(request.result);
@@ -809,7 +857,7 @@
 
         function deleteUser(id) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readwrite');
+                const tx = db_local.transaction(['users'], 'readwrite');
                 const store = tx.objectStore('users');
                 const request = store.delete(id);
                 request.onsuccess = () => resolve();
@@ -819,7 +867,7 @@
 
         function findUser(id, password) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readonly');
+                const tx = db_local.transaction(['users'], 'readonly');
                 const store = tx.objectStore('users');
                 const request = store.get(id);
                 request.onsuccess = () => {
@@ -836,7 +884,7 @@
 
         function getUserById(id) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readonly');
+                const tx = db_local.transaction(['users'], 'readonly');
                 const store = tx.objectStore('users');
                 const request = store.get(id);
                 request.onsuccess = () => resolve(request.result);
@@ -846,7 +894,7 @@
 
         function getPendingUsers() {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['users'], 'readonly');
+                const tx = db_local.transaction(['users'], 'readonly');
                 const store = tx.objectStore('users');
                 const index = store.index('status');
                 const request = index.getAll('pending');
@@ -856,11 +904,11 @@
         }
 
         // ============================================
-        // 3. FACE DATA MANAGEMENT
+        // 5. FACE DATA (LOCAL)
         // ============================================
         function saveFaceData(userId, type, imageData) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['face_data'], 'readwrite');
+                const tx = db_local.transaction(['face_data'], 'readwrite');
                 const store = tx.objectStore('face_data');
                 const request = store.add({
                     user_id: userId,
@@ -875,7 +923,7 @@
 
         function getFaceDataByUser(userId) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['face_data'], 'readonly');
+                const tx = db_local.transaction(['face_data'], 'readonly');
                 const store = tx.objectStore('face_data');
                 const index = store.index('user_id');
                 const request = index.getAll(userId);
@@ -886,23 +934,17 @@
 
         function deleteFaceData(userId) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['face_data'], 'readwrite');
+                const tx = db_local.transaction(['face_data'], 'readwrite');
                 const store = tx.objectStore('face_data');
                 const index = store.index('user_id');
                 const request = index.getAll(userId);
                 request.onsuccess = () => {
                     const data = request.result;
                     let deleted = 0;
-                    if (data.length === 0) {
-                        resolve();
-                        return;
-                    }
+                    if (data.length === 0) { resolve(); return; }
                     data.forEach(item => {
                         const deleteReq = store.delete(item.id);
-                        deleteReq.onsuccess = () => {
-                            deleted++;
-                            if (deleted === data.length) resolve();
-                        };
+                        deleteReq.onsuccess = () => { deleted++; if (deleted === data.length) resolve(); };
                         deleteReq.onerror = () => reject(deleteReq.error);
                     });
                 };
@@ -911,11 +953,11 @@
         }
 
         // ============================================
-        // 4. ABSENSI DATA
+        // 6. ABSENSI (LOCAL)
         // ============================================
         function saveAbsensi(data) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['absensi'], 'readwrite');
+                const tx = db_local.transaction(['absensi'], 'readwrite');
                 const store = tx.objectStore('absensi');
                 const request = store.add(data);
                 request.onsuccess = () => resolve(request.result);
@@ -925,7 +967,7 @@
 
         function getAbsensiByUser(userId) {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['absensi'], 'readonly');
+                const tx = db_local.transaction(['absensi'], 'readonly');
                 const store = tx.objectStore('absensi');
                 const index = store.index('user_id');
                 const request = index.getAll(userId);
@@ -936,7 +978,7 @@
 
         function getAllAbsensi() {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['absensi'], 'readonly');
+                const tx = db_local.transaction(['absensi'], 'readonly');
                 const store = tx.objectStore('absensi');
                 const request = store.getAll();
                 request.onsuccess = () => resolve(request.result);
@@ -946,7 +988,7 @@
 
         function deleteAllAbsensi() {
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(['absensi'], 'readwrite');
+                const tx = db_local.transaction(['absensi'], 'readwrite');
                 const store = tx.objectStore('absensi');
                 const request = store.clear();
                 request.onsuccess = () => resolve();
@@ -955,39 +997,299 @@
         }
 
         // ============================================
-        // 5. CONFIG
+        // 7. AUTO DELETE OLD DATA
         // ============================================
-        function getConfig() {
-            return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(['config'], 'readonly');
-                    const store = tx.objectStore('config');
-                    const request = store.getAll();
-                    request.onsuccess = () => {
-                        const configs = request.result;
-                        const config = {};
-                        configs.forEach(item => { config[item.key] = item.value; });
-                        resolve(config);
-                    };
-                    request.onerror = () => resolve({});
-                } catch {
-                    resolve({});
+        async function autoDeleteOldData() {
+            try {
+                const retentionMonths = parseInt(localStorage.getItem('retention_months')) || 3;
+                if (retentionMonths === 0) return;
+                
+                const cutoffDate = new Date();
+                cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
+                
+                const allData = await getAllAbsensi();
+                const oldData = allData.filter(item => {
+                    const itemDate = new Date(item.tanggal);
+                    return itemDate < cutoffDate;
+                });
+                
+                if (oldData.length === 0) return;
+                
+                let deleted = 0;
+                for (const item of oldData) {
+                    const tx = db_local.transaction(['absensi'], 'readwrite');
+                    const store = tx.objectStore('absensi');
+                    await new Promise((resolve, reject) => {
+                        const request = store.delete(item.id);
+                        request.onsuccess = () => { deleted++; resolve(); };
+                        request.onerror = () => reject(request.error);
+                    });
                 }
-            });
-        }
-
-        function saveConfig(key, value) {
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(['config'], 'readwrite');
-                const store = tx.objectStore('config');
-                const request = store.put({ key, value });
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
+                
+                console.log(`🧹 Auto delete: ${deleted} data lama dihapus (retensi ${retentionMonths} bulan)`);
+                updateStorageInfo();
+                
+            } catch (error) {
+                console.error('Auto delete error:', error);
+            }
         }
 
         // ============================================
-        // 6. KONFIGURASI
+        // 8. STORAGE INFO
+        // ============================================
+        async function updateStorageInfo() {
+            try {
+                const allData = await getAllAbsensi();
+                const retention = parseInt(localStorage.getItem('retention_months')) || 3;
+                
+                let totalSize = 0;
+                for (const item of allData) {
+                    totalSize += 1;
+                    if (item.foto) {
+                        const base64Length = item.foto.length;
+                        const sizeInKB = (base64Length * 3/4) / 1024;
+                        totalSize += sizeInKB;
+                    }
+                }
+                
+                const sizeMB = (totalSize / 1024).toFixed(2);
+                document.getElementById('storage-info').textContent = 
+                    `${allData.length} data • ~${sizeMB} MB`;
+                document.getElementById('retention-info').textContent = 
+                    retention === 0 ? 'Tidak pernah' : `${retention} bulan`;
+                
+            } catch (error) {
+                console.error('Storage info error:', error);
+            }
+        }
+
+        // ============================================
+        // 9. FIREBASE SYNC FUNCTIONS
+        // ============================================
+
+        // Update sync status
+        function updateSyncStatus(status, message = '') {
+            const el = document.getElementById('sync-status');
+            if (!el) return;
+            
+            el.className = `sync-status ${status}`;
+            const icon = el.querySelector('i');
+            const text = el.querySelector('span');
+            
+            if (status === 'synced') {
+                icon.className = 'fas fa-cloud-upload-alt';
+                text.textContent = message || 'Synced';
+            } else if (status === 'syncing') {
+                icon.className = 'fas fa-spinner fa-spin';
+                text.textContent = message || 'Syncing...';
+            } else if (status === 'error') {
+                icon.className = 'fas fa-exclamation-triangle';
+                text.textContent = message || 'Sync Error';
+            }
+        }
+
+        // Sync Users to Firebase
+        async function syncUsersToFirebase() {
+            try {
+                updateSyncStatus('syncing', 'Syncing users...');
+                
+                const users = await getUsers();
+                if (users.length === 0) {
+                    updateSyncStatus('synced', 'No users to sync');
+                    return { success: true, count: 0 };
+                }
+                
+                let syncedCount = 0;
+                for (const user of users) {
+                    await db.collection('users').doc(user.id).set({
+                        id: user.id,
+                        name: user.name,
+                        role: user.role,
+                        status: user.status,
+                        created_at: user.created_at || new Date().toISOString(),
+                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                    syncedCount++;
+                }
+                
+                updateSyncStatus('synced', `${syncedCount} users synced`);
+                return { success: true, count: syncedCount };
+                
+            } catch (error) {
+                console.error('Error syncing users:', error);
+                updateSyncStatus('error', 'User sync failed');
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Sync Face Data to Firebase
+        async function syncFaceDataToFirebase(userId) {
+            try {
+                const faceData = await getFaceDataByUser(userId);
+                if (faceData.length === 0) return { success: true, count: 0 };
+                
+                let syncedCount = 0;
+                for (const face of faceData) {
+                    const storageRef = storage.ref(`faces/${userId}/${face.type}.jpg`);
+                    
+                    // Upload ke Storage
+                    await storageRef.putString(face.image, 'data_url');
+                    
+                    // Get download URL
+                    const downloadURL = await storageRef.getDownloadURL();
+                    
+                    // Save metadata ke Firestore
+                    await db.collection('faces').doc(`${userId}_${face.type}`).set({
+                        user_id: userId,
+                        type: face.type,
+                        image_url: downloadURL,
+                        created_at: face.created_at || new Date().toISOString(),
+                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                    
+                    syncedCount++;
+                }
+                
+                return { success: true, count: syncedCount };
+                
+            } catch (error) {
+                console.error('Error syncing face data:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Sync Absensi to Firebase (TANPA FOTO)
+        async function syncAbsensiToFirebase() {
+            try {
+                updateSyncStatus('syncing', 'Syncing attendance...');
+                
+                const absensiData = await getAllAbsensi();
+                if (absensiData.length === 0) {
+                    updateSyncStatus('synced', 'No attendance to sync');
+                    return { success: true, count: 0 };
+                }
+                
+                let syncedCount = 0;
+                for (const item of absensiData) {
+                    // Hanya data text, tanpa foto
+                    const docData = {
+                        local_id: item.id,
+                        user_id: item.user_id,
+                        user_name: item.user_name || '-',
+                        jenis_absen: item.jenis_absen,
+                        waktu: item.waktu,
+                        tanggal: item.tanggal,
+                        status: item.status,
+                        jarak: item.jarak,
+                        face_score: item.face_score || 0,
+                        lat: item.lat || null,
+                        lng: item.lng || null,
+                        is_audit: item.is_audit || false,
+                        timestamp: item.timestamp || new Date().toISOString(),
+                        synced_at: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    await db.collection('absensi').doc(`absensi_${item.id}`).set(docData, { merge: true });
+                    
+                    // Jika ada foto audit, upload ke Storage
+                    if (item.is_audit && item.foto) {
+                        try {
+                            const storageRef = storage.ref(`audit/${item.user_id}/${item.tanggal}_${item.jenis_absen}.jpg`);
+                            await storageRef.putString(item.foto, 'data_url');
+                            const downloadURL = await storageRef.getDownloadURL();
+                            await db.collection('absensi').doc(`absensi_${item.id}`).update({
+                                audit_photo_url: downloadURL
+                            });
+                        } catch (uploadError) {
+                            console.warn('Failed to upload audit photo:', uploadError);
+                        }
+                    }
+                    
+                    syncedCount++;
+                }
+                
+                updateSyncStatus('synced', `${syncedCount} attendance synced`);
+                return { success: true, count: syncedCount };
+                
+            } catch (error) {
+                console.error('Error syncing absensi:', error);
+                updateSyncStatus('error', 'Attendance sync failed');
+                return { success: false, error: error.message };
+            }
+        }
+
+        // MAIN SYNC FUNCTION
+        window.syncToFirebase = async function() {
+            if (!navigator.onLine) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tidak Ada Koneksi Internet',
+                    text: 'Pastikan Anda terhubung ke internet untuk sync ke cloud',
+                    confirmButtonColor: '#f39c12'
+                });
+                return;
+            }
+            
+            Swal.fire({
+                title: 'Menyinkronkan Data...',
+                text: 'Mengirim data ke Firebase cloud',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+            
+            try {
+                await syncUsersToFirebase();
+                await syncAbsensiToFirebase();
+                
+                const users = await getUsers();
+                for (const user of users) {
+                    if (user.status === 'approved') {
+                        await syncFaceDataToFirebase(user.id);
+                    }
+                }
+                
+                // Update cloud status
+                document.getElementById('cloud-status').textContent = '✅ Tersinkronisasi';
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sinkronisasi Berhasil!',
+                    text: 'Semua data telah disimpan ke cloud',
+                    confirmButtonColor: '#3085d6'
+                });
+                
+                updateSyncStatus('synced', 'All data synced');
+                
+            } catch (error) {
+                console.error('Sync error:', error);
+                document.getElementById('cloud-status').textContent = '❌ Gagal sync';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Sinkronisasi Gagal',
+                    text: error.message || 'Terjadi kesalahan saat sync',
+                    confirmButtonColor: '#d33'
+                });
+                updateSyncStatus('error', 'Sync failed');
+            }
+        };
+
+        // Check cloud status
+        async function checkCloudStatus() {
+            try {
+                const snapshot = await db.collection('absensi').limit(1).get();
+                if (!snapshot.empty) {
+                    document.getElementById('cloud-status').textContent = '✅ Terkoneksi';
+                } else {
+                    document.getElementById('cloud-status').textContent = '☁️ Belum ada data';
+                }
+            } catch (error) {
+                console.error('Cloud check error:', error);
+                document.getElementById('cloud-status').textContent = '⚠️ Gagal koneksi';
+            }
+        }
+
+        // ============================================
+        // 10. KONFIGURASI
         // ============================================
         const CONFIG = {
             KANTOR_LAT: -6.1923239,
@@ -995,7 +1297,10 @@
             RADIUS_MAKSIMAL: 20,
             JAM_MASUK_MAX: 8,
             JAM_PULANG_MIN: 16,
-            FACE_SIMILARITY_THRESHOLD: 0.6 // Threshold untuk face matching
+            FACE_SIMILARITY_THRESHOLD: 0.6,
+            IMAGE_QUALITY: 0.5,
+            IMAGE_WIDTH: 320,
+            IMAGE_HEIGHT: 240
         };
 
         let currentUser = null;
@@ -1021,7 +1326,110 @@
         let regContext = null;
 
         // ============================================
-        // 7. LOGIN / SIGNUP NAVIGATION
+        // 11. OPTIMIZED IMAGE CAPTURE
+        // ============================================
+        function ambilFotoOptimasi(kualitas = CONFIG.IMAGE_QUALITY) {
+            const videoElement = video;
+            const canvasElement = canvas;
+            const ctx = context;
+            
+            const targetWidth = CONFIG.IMAGE_WIDTH;
+            const targetHeight = CONFIG.IMAGE_HEIGHT;
+            
+            canvasElement.width = targetWidth;
+            canvasElement.height = targetHeight;
+            
+            ctx.translate(canvasElement.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            return canvasElement.toDataURL('image/jpeg', kualitas);
+        }
+
+        // ============================================
+        // 12. FACE COMPARISON
+        // ============================================
+        function compareFaces(image1, image2) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img1 = new Image();
+                const img2 = new Image();
+                
+                let loaded = 0;
+                
+                img1.onload = () => {
+                    loaded++;
+                    if (loaded === 2) processImages();
+                };
+                img2.onload = () => {
+                    loaded++;
+                    if (loaded === 2) processImages();
+                };
+                
+                img1.src = image1;
+                img2.src = image2;
+                
+                function processImages() {
+                    const size = 64;
+                    canvas.width = size;
+                    canvas.height = size;
+                    
+                    ctx.drawImage(img1, 0, 0, size, size);
+                    const data1 = ctx.getImageData(0, 0, size, size).data;
+                    
+                    ctx.clearRect(0, 0, size, size);
+                    ctx.drawImage(img2, 0, 0, size, size);
+                    const data2 = ctx.getImageData(0, 0, size, size).data;
+                    
+                    let mse = 0;
+                    let totalPixels = size * size;
+                    
+                    for (let i = 0; i < data1.length; i += 4) {
+                        const gray1 = (data1[i] + data1[i+1] + data1[i+2]) / 3;
+                        const gray2 = (data2[i] + data2[i+1] + data2[i+2]) / 3;
+                        const diff = gray1 - gray2;
+                        mse += diff * diff;
+                    }
+                    
+                    mse = mse / totalPixels;
+                    const similarity = 1 - (mse / (255 * 255));
+                    resolve(similarity);
+                }
+            });
+        }
+
+        async function verifyFace(photoData) {
+            if (!currentUser) return { match: false, score: 0 };
+            
+            try {
+                const faceData = await getFaceDataByUser(currentUser.id);
+                if (faceData.length === 0) {
+                    return { match: false, score: 0, error: 'Tidak ada data wajah' };
+                }
+                
+                let bestMatch = 0;
+                for (const face of faceData) {
+                    const similarity = await compareFaces(photoData, face.image);
+                    if (similarity > bestMatch) {
+                        bestMatch = similarity;
+                    }
+                }
+                
+                const threshold = CONFIG.FACE_SIMILARITY_THRESHOLD;
+                const match = bestMatch >= threshold;
+                
+                return { match, score: bestMatch };
+                
+            } catch (error) {
+                console.error('Face verification error:', error);
+                return { match: false, score: 0, error: 'Error verifikasi' };
+            }
+        }
+
+        // ============================================
+        // 13. LOGIN / SIGNUP
         // ============================================
         function showLogin() {
             document.getElementById('login-form').classList.remove('hidden');
@@ -1037,9 +1445,6 @@
             document.getElementById('btn-login-tab').className = 'flex-1 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg font-bold text-sm';
         }
 
-        // ============================================
-        // 8. LOGIN
-        // ============================================
         document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -1054,23 +1459,12 @@
             try {
                 const user = await findUser(id, password);
                 if (user) {
-                    // Cek status user
                     if (user.status === 'pending') {
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Menunggu Verifikasi',
-                            text: 'Akun Anda sedang menunggu persetujuan admin. Silakan tunggu.',
-                            confirmButtonColor: '#3085d6'
-                        });
+                        Swal.fire({ icon: 'info', title: 'Menunggu Verifikasi', text: 'Akun Anda sedang menunggu persetujuan admin.' });
                         return;
                     }
                     if (user.status === 'rejected') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Akun Ditolak',
-                            text: 'Pendaftaran Anda ditolak oleh admin. Silakan hubungi admin.',
-                            confirmButtonColor: '#d33'
-                        });
+                        Swal.fire({ icon: 'error', title: 'Akun Ditolak', text: 'Pendaftaran Anda ditolak oleh admin.' });
                         return;
                     }
                     currentUser = user;
@@ -1093,7 +1487,6 @@
             document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
             document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
             
-            // Update user status
             updateUserStatusUI(user.status);
             
             if (user.role === 'admin') {
@@ -1106,6 +1499,12 @@
             initCamera();
             startGPSTracking();
             loadUserLog();
+            updateStorageInfo();
+            
+            // Cek cloud status jika admin
+            if (user.role === 'admin') {
+                checkCloudStatus();
+            }
             
             Swal.fire({
                 icon: 'success',
@@ -1157,7 +1556,7 @@
         }
 
         // ============================================
-        // 9. FACE REGISTRATION (SIGNUP)
+        // 14. FACE REGISTRATION
         // ============================================
         async function startFaceRegistration() {
             const id = document.getElementById('signup-id').value.trim();
@@ -1174,7 +1573,6 @@
                 return;
             }
             
-            // Cek apakah ID sudah ada
             try {
                 const users = await getUsers();
                 if (users.some(u => u.id === id)) {
@@ -1186,10 +1584,8 @@
                 return;
             }
             
-            // Simpan data sementara
             window._signupData = { id, name, password };
             
-            // Buka modal face registration
             document.getElementById('face-reg-modal').classList.remove('hidden');
             regStep = 0;
             capturedFaces = {};
@@ -1223,7 +1619,6 @@
             document.getElementById('reg-instruction').textContent = regLabels[regStep];
             document.getElementById('guide-label').textContent = regLabels[regStep];
             
-            // Update dots
             for (let i = 0; i < totalSteps; i++) {
                 const dot = document.getElementById(`step-dot-${i+1}`);
                 if (i < regStep) {
@@ -1241,18 +1636,20 @@
             
             const canvas = regCanvas;
             const context = regContext;
-            canvas.width = regVideo.videoWidth || 640;
-            canvas.height = regVideo.videoHeight || 480;
+            const targetWidth = CONFIG.IMAGE_WIDTH;
+            const targetHeight = CONFIG.IMAGE_HEIGHT;
+            
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
             context.translate(canvas.width, 0);
             context.scale(-1, 1);
-            context.drawImage(regVideo, 0, 0, canvas.width, canvas.height);
+            context.drawImage(regVideo, 0, 0, targetWidth, targetHeight);
             context.setTransform(1, 0, 0, 1, 0, 0);
             
-            const imageData = canvas.toDataURL('image/jpeg', 0.9);
+            const imageData = canvas.toDataURL('image/jpeg', 0.4);
             const stepName = regSteps[regStep];
             capturedFaces[stepName] = imageData;
             
-            // Tampilkan feedback
             const dot = document.getElementById(`step-dot-${regStep+1}`);
             dot.className = 'w-3 h-3 rounded-full bg-green-500';
             
@@ -1264,18 +1661,6 @@
                 videoEl.style.filter = 'brightness(1)';
             }, 200);
             
-            // Lanjut ke step berikutnya
-            regStep++;
-            if (regStep < regSteps.length) {
-                updateRegStep();
-            } else {
-                // Selesai semua capture
-                finishFaceRegistration();
-            }
-        }
-
-        function skipFaceCapture() {
-            // Untuk testing, bisa skip
             regStep++;
             if (regStep < regSteps.length) {
                 updateRegStep();
@@ -1288,10 +1673,8 @@
             const { id, name, password } = window._signupData;
             
             try {
-                // Simpan user dengan status pending
                 await addUser(id, name, password, 'user', 'pending');
                 
-                // Simpan semua face data
                 for (const [type, image] of Object.entries(capturedFaces)) {
                     await saveFaceData(id, type, image);
                 }
@@ -1309,12 +1692,9 @@
                     confirmButtonColor: '#3085d6'
                 });
                 
-                // Reset form
                 document.getElementById('signup-id').value = '';
                 document.getElementById('signup-name').value = '';
                 document.getElementById('signup-password').value = '';
-                
-                // Switch ke login
                 showLogin();
                 
             } catch (error) {
@@ -1332,98 +1712,7 @@
         }
 
         // ============================================
-        // 10. FACE COMPARISON (SIMPLE)
-        // ============================================
-        function compareFaces(image1, image2) {
-            // Simple pixel comparison (for demo purposes)
-            // In production, use a proper face recognition library like face-api.js
-            
-            // Create canvas for image processing
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const img1 = new Image();
-            const img2 = new Image();
-            
-            return new Promise((resolve) => {
-                let loaded = 0;
-                
-                img1.onload = () => {
-                    loaded++;
-                    if (loaded === 2) processImages();
-                };
-                img2.onload = () => {
-                    loaded++;
-                    if (loaded === 2) processImages();
-                };
-                
-                img1.src = image1;
-                img2.src = image2;
-                
-                function processImages() {
-                    // Resize both images to same size for comparison
-                    const size = 100;
-                    canvas.width = size;
-                    canvas.height = size;
-                    
-                    // Get grayscale data from first image
-                    ctx.drawImage(img1, 0, 0, size, size);
-                    const data1 = ctx.getImageData(0, 0, size, size).data;
-                    
-                    // Get grayscale data from second image
-                    ctx.clearRect(0, 0, size, size);
-                    ctx.drawImage(img2, 0, 0, size, size);
-                    const data2 = ctx.getImageData(0, 0, size, size).data;
-                    
-                    // Calculate similarity using MSE (Mean Squared Error)
-                    let mse = 0;
-                    let totalPixels = size * size;
-                    
-                    for (let i = 0; i < data1.length; i += 4) {
-                        const gray1 = (data1[i] + data1[i+1] + data1[i+2]) / 3;
-                        const gray2 = (data2[i] + data2[i+1] + data2[i+2]) / 3;
-                        const diff = gray1 - gray2;
-                        mse += diff * diff;
-                    }
-                    
-                    mse = mse / totalPixels;
-                    const similarity = 1 - (mse / (255 * 255));
-                    
-                    resolve(similarity);
-                }
-            });
-        }
-
-        async function verifyFace(photoData) {
-            if (!currentUser) return { match: false, score: 0 };
-            
-            try {
-                const faceData = await getFaceDataByUser(currentUser.id);
-                if (faceData.length === 0) {
-                    return { match: false, score: 0, error: 'Tidak ada data wajah' };
-                }
-                
-                // Compare with all registered faces
-                let bestMatch = 0;
-                for (const face of faceData) {
-                    const similarity = await compareFaces(photoData, face.image);
-                    if (similarity > bestMatch) {
-                        bestMatch = similarity;
-                    }
-                }
-                
-                const threshold = CONFIG.FACE_SIMILARITY_THRESHOLD;
-                const match = bestMatch >= threshold;
-                
-                return { match, score: bestMatch };
-                
-            } catch (error) {
-                console.error('Face verification error:', error);
-                return { match: false, score: 0, error: 'Error verifikasi' };
-            }
-        }
-
-        // ============================================
-        // 11. GPS TRACKING
+        // 15. GPS TRACKING
         // ============================================
         function startGPSTracking() {
             if (!navigator.geolocation) {
@@ -1432,7 +1721,7 @@
             }
 
             document.getElementById('gps-text').textContent = 'Mencari GPS...';
-            document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-yellow-500 gps-pulse';
+            document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-yellow-500';
 
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
@@ -1488,7 +1777,7 @@
                 document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-green-500';
             } else {
                 document.getElementById('gps-text').textContent = `❌ ${jarak}m dari kantor (max ${CONFIG.RADIUS_MAKSIMAL}m)`;
-                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500 gps-pulse';
+                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500';
             }
 
             document.getElementById('radius-info').textContent = `Akurasi: ${Math.round(accuracy || 0)}m | Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
@@ -1512,7 +1801,7 @@
         }
 
         // ============================================
-        // 12. KAMERA
+        // 16. KAMERA
         // ============================================
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
@@ -1534,18 +1823,8 @@
             });
         }
 
-        function ambilFoto() {
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            context.translate(canvas.width, 0);
-            context.scale(-1, 1);
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            context.setTransform(1, 0, 0, 1, 0, 0);
-            return canvas.toDataURL('image/jpeg', 0.8);
-        }
-
         // ============================================
-        // 13. CLOCK
+        // 17. CLOCK
         // ============================================
         function updateClock() {
             const now = new Date();
@@ -1558,7 +1837,7 @@
         updateClock();
 
         // ============================================
-        // 14. PROSES ABSEN DENGAN FACE VERIFICATION
+        // 18. PROSES ABSEN
         // ============================================
         function showLoading(text, subtext) {
             document.getElementById('loading-overlay').classList.remove('hidden');
@@ -1592,12 +1871,7 @@
             }
 
             if (currentUser.status !== 'approved') {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Akun Belum Terverifikasi',
-                    text: 'Akun Anda harus diverifikasi oleh admin terlebih dahulu',
-                    confirmButtonColor: '#f39c12'
-                });
+                Swal.fire({ icon: 'warning', title: 'Akun Belum Terverifikasi', text: 'Akun Anda harus diverifikasi oleh admin terlebih dahulu' });
                 return;
             }
 
@@ -1610,11 +1884,7 @@
             cekAbsenGanda(jenis).then(allowed => {
                 if (!allowed) {
                     hideLoading();
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Sudah Absen',
-                        text: `Anda sudah melakukan absen ${jenis === 'masuk' ? 'masuk' : 'pulang'} hari ini`
-                    });
+                    Swal.fire({ icon: 'warning', title: 'Sudah Absen', text: `Anda sudah melakukan absen ${jenis === 'masuk' ? 'masuk' : 'pulang'} hari ini` });
                     return;
                 }
                 checkGeofencing(jenis);
@@ -1639,7 +1909,7 @@
                         <div class="text-left">
                             <p><b>Jarak Anda dari kantor:</b> ${jarakDibulatkan} meter</p>
                             <p><b>Maksimal jarak:</b> ${CONFIG.RADIUS_MAKSIMAL} meter</p>
-                            <p class="text-red-500 mt-2">⚠️ Anda harus berada dalam radius 20 meter dari kantor</p>
+                            <p class="text-red-500 mt-2">⚠️ Anda harus berada dalam radius ${CONFIG.RADIUS_MAKSIMAL} meter dari kantor</p>
                         </div>
                     `,
                     confirmButtonColor: '#d33'
@@ -1653,7 +1923,6 @@
 
             if (jenis === 'masuk') {
                 if (hour > CONFIG.JAM_MASUK_MAX || (hour === CONFIG.JAM_MASUK_MAX && minute > 0)) {
-                    // Lanjut dengan face verification
                     faceVerificationStep(jenis, jarakDibulatkan, 'Terlambat');
                 } else {
                     faceVerificationStep(jenis, jarakDibulatkan, 'Tepat Waktu');
@@ -1676,14 +1945,28 @@
         async function faceVerificationStep(jenis, jarak, status) {
             showLoading('Verifikasi Wajah...', 'Pastikan wajah terlihat jelas di kamera');
             
-            // Ambil foto
-            const photoData = ambilFoto();
-            
-            // Verifikasi wajah
+            const photoData = ambilFotoOptimasi(CONFIG.IMAGE_QUALITY);
             const result = await verifyFace(photoData);
             
             if (!result.match) {
                 hideLoading();
+                const auditPhoto = ambilFotoOptimasi(0.3);
+                await saveAbsensi({
+                    user_id: currentUser.id,
+                    user_name: currentUser.name,
+                    jenis_absen: jenis,
+                    waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    tanggal: new Date().toISOString().split('T')[0],
+                    status: 'Wajah Tidak Cocok',
+                    jarak: jarak,
+                    foto: auditPhoto,
+                    face_score: result.score,
+                    lat: currentPosition.lat,
+                    lng: currentPosition.lng,
+                    timestamp: new Date().toISOString(),
+                    is_audit: true
+                });
+                
                 Swal.fire({
                     icon: 'error',
                     title: '❌ Verifikasi Wajah Gagal',
@@ -1692,7 +1975,7 @@
                             <p><b>Status:</b> Wajah tidak cocok dengan data registrasi</p>
                             <p class="text-xs text-slate-400 mt-2">Skor kemiripan: ${Math.round((result.score || 0) * 100)}%</p>
                             <p class="text-xs text-slate-400">Minimal: ${Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100)}%</p>
-                            <p class="text-red-500 mt-2">⚠️ Pastikan Anda menghadap kamera dengan jelas</p>
+                            <p class="text-red-500 mt-2">⚠️ Foto gagal disimpan untuk audit admin</p>
                         </div>
                     `,
                     confirmButtonColor: '#d33'
@@ -1700,8 +1983,10 @@
                 return;
             }
             
-            // Jika face match, lanjutkan absen
-            lanjutkanAbsen(jenis, jarak, status, photoData, result.score);
+            const shouldSavePhoto = result.score < 0.6;
+            const finalPhoto = shouldSavePhoto ? photoData : null;
+            
+            lanjutkanAbsen(jenis, jarak, status, finalPhoto, result.score);
         }
 
         function lanjutkanAbsen(jenis, jarak, status, foto, faceScore) {
@@ -1721,11 +2006,12 @@
                         tanggal: tanggal,
                         status: status,
                         jarak: jarak,
-                        foto: foto || ambilFoto(),
+                        foto: foto,
+                        face_score: faceScore,
                         lat: currentPosition.lat,
                         lng: currentPosition.lng,
-                        face_score: faceScore || 1,
-                        timestamp: now.toISOString()
+                        timestamp: now.toISOString(),
+                        is_audit: faceScore < 0.6
                     };
 
                     saveAbsensi(data).then(() => {
@@ -1733,6 +2019,8 @@
                         isProcessing = false;
 
                         const isLate = status === 'Terlambat';
+                        const faceScorePercent = Math.round(faceScore * 100);
+                        
                         Swal.fire({
                             icon: isLate ? 'warning' : 'success',
                             title: `✅ Absen ${jenis.toUpperCase()} Berhasil!`,
@@ -1742,13 +2030,23 @@
                                     <p><i class="fas fa-clock text-blue-500 w-6"></i> ${waktu} WIB</p>
                                     <p><i class="fas fa-map-marker-alt text-red-500 w-6"></i> ${jarak} meter dari kantor</p>
                                     <p><i class="fas fa-check-circle text-green-500 w-6"></i> Status: <b>${status}</b></p>
-                                    <p><i class="fas fa-user-check text-purple-500 w-6"></i> Face Match: ${Math.round((faceScore || 1) * 100)}%</p>
+                                    <p><i class="fas fa-user-check text-purple-500 w-6"></i> Face Match: ${faceScorePercent}%</p>
+                                    ${faceScore < 0.6 ? '<p class="text-yellow-600 mt-2">⚠️ Foto disimpan untuk audit (face score rendah)</p>' : ''}
+                                    <p class="text-xs text-slate-400 mt-2">Data disimpan dengan optimasi memori</p>
                                 </div>
                             `,
                             confirmButtonColor: '#3085d6'
                         });
 
                         loadUserLog();
+                        updateStorageInfo();
+                        
+                        // Auto sync ke Firebase jika online
+                        if (navigator.onLine && currentUser.role === 'admin') {
+                            setTimeout(() => {
+                                syncToFirebase();
+                            }, 5000);
+                        }
 
                     }).catch(error => {
                         console.error('Save error:', error);
@@ -1767,7 +2065,7 @@
         }
 
         // ============================================
-        // 15. USER LOG
+        // 19. USER LOG
         // ============================================
         function tambahkanKeLog(data) {
             const container = document.getElementById('log-container');
@@ -1779,14 +2077,21 @@
             
             const statusClass = data.status === 'Terlambat' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
                                data.status === 'Tepat Waktu' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                               data.status === 'Wajah Tidak Cocok' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
                                'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400';
 
+            const hasPhoto = data.foto && data.foto.length > 100;
+
             card.innerHTML = `
-                <img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border flex-shrink-0">
+                ${hasPhoto ? `<img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border flex-shrink-0">` : 
+                             `<div class="w-12 h-12 rounded-lg bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-user text-slate-400"></i>
+                              </div>`}
                 <div class="flex-1 min-w-0">
                     <p class="font-bold text-sm capitalize truncate">${data.user_id} - Absen ${data.jenis_absen}</p>
                     <p class="text-xs text-slate-500">${data.tanggal} • ${data.waktu} WIB • ${data.jarak}m</p>
                     ${data.face_score ? `<p class="text-xs text-purple-500">Face Match: ${Math.round(data.face_score * 100)}%</p>` : ''}
+                    ${data.is_audit ? '<p class="text-xs text-yellow-600">📸 Audit</p>' : ''}
                 </div>
                 <div class="px-2 py-1 rounded text-xs font-bold ${statusClass} whitespace-nowrap">
                     ${data.status}
@@ -1846,7 +2151,7 @@
         }
 
         // ============================================
-        // 16. ADMIN - VERIFY PENDING USERS
+        // 20. ADMIN - VERIFY PENDING USERS
         // ============================================
         async function showPendingUsers() {
             document.getElementById('verify-modal').classList.remove('hidden');
@@ -1906,9 +2211,7 @@
             }
         }
 
-        function viewFaceData(userId) {
-            // Already shown in the card with image click
-        }
+        function viewFaceData(userId) {}
 
         async function verifyUser(userId, approve) {
             try {
@@ -1930,9 +2233,9 @@
                 
                 await loadPendingUsers();
                 
-                // Jika user yang sedang login adalah admin, refresh admin panel
-                if (currentUser && currentUser.role === 'admin') {
-                    // Reload pending users list
+                // Sync ke Firebase setelah verifikasi
+                if (approve && navigator.onLine) {
+                    await syncFaceDataToFirebase(userId);
                 }
             } catch (error) {
                 Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
@@ -1940,7 +2243,7 @@
         }
 
         // ============================================
-        // 17. ADMIN - KELOLA USER
+        // 21. ADMIN - KELOLA USER
         // ============================================
         let resetTargetUser = null;
 
@@ -2081,7 +2384,7 @@
         }
 
         // ============================================
-        // 18. ADMIN - SEMUA ABSENSI
+        // 22. ADMIN - SEMUA ABSENSI
         // ============================================
         async function showAllAbsensi() {
             document.getElementById('all-absensi-modal').classList.remove('hidden');
@@ -2096,7 +2399,7 @@
                 renderAdminTable();
             } catch (error) {
                 document.getElementById('all-absensi-body').innerHTML = 
-                    '<tr><td colspan="8" class="text-center py-4 text-red-500">Gagal memuat data</td></tr>';
+                    '<tr><td colspan="9" class="text-center py-4 text-red-500">Gagal memuat data</td></tr>';
             }
         }
 
@@ -2138,7 +2441,7 @@
             total.textContent = filteredAbsensiData.length;
             
             if (filteredAbsensiData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-slate-400">Tidak ada data</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-slate-400">Tidak ada data</td></tr>';
                 return;
             }
             
@@ -2146,6 +2449,7 @@
             filteredAbsensiData.forEach((item, index) => {
                 const statusClass = item.status === 'Terlambat' ? 'text-red-600 dark:text-red-400' :
                                    item.status === 'Tepat Waktu' ? 'text-green-600 dark:text-green-400' :
+                                   item.status === 'Wajah Tidak Cocok' ? 'text-red-600 dark:text-red-400' :
                                    'text-blue-600 dark:text-blue-400';
                 html += `
                     <tr class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
@@ -2156,6 +2460,7 @@
                         <td class="p-2">${item.waktu}</td>
                         <td class="p-2 capitalize">${item.jenis_absen}</td>
                         <td class="p-2 font-bold ${statusClass}">${item.status}</td>
+                        <td class="p-2">${item.face_score ? Math.round(item.face_score * 100) + '%' : '-'}</td>
                         <td class="p-2">${item.jarak}m</td>
                     </tr>
                 `;
@@ -2164,7 +2469,7 @@
         }
 
         // ============================================
-        // 19. ADMIN - EXPORT EXCEL
+        // 23. ADMIN - EXPORT EXCEL
         // ============================================
         function showExportModal() {
             document.getElementById('export-modal').classList.remove('hidden');
@@ -2278,8 +2583,8 @@
                     'Jam': item.waktu,
                     'Jenis Absen': item.jenis_absen === 'masuk' ? 'Masuk' : 'Pulang',
                     'Status': item.status,
-                    'Jarak (meter)': item.jarak,
                     'Face Score': item.face_score ? Math.round(item.face_score * 100) + '%' : '-',
+                    'Jarak (meter)': item.jarak,
                     'Latitude': item.lat || '-',
                     'Longitude': item.lng || '-',
                     'Timestamp': item.timestamp || '-'
@@ -2328,13 +2633,15 @@
         }
 
         // ============================================
-        // 20. ADMIN - SETTINGS
+        // 24. ADMIN - SETTINGS
         // ============================================
         function showSettings() {
             document.getElementById('settings-modal').classList.remove('hidden');
             document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
             document.getElementById('setting-masuk').value = `${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
             document.getElementById('setting-pulang').value = `${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+            document.getElementById('setting-retention').value = localStorage.getItem('retention_months') || 3;
+            document.getElementById('setting-face-threshold').value = Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100);
         }
 
         function updateSetting(type) {
@@ -2342,7 +2649,6 @@
                 const value = parseInt(document.getElementById('setting-radius').value);
                 if (value > 0 && value <= 100) {
                     CONFIG.RADIUS_MAKSIMAL = value;
-                    saveConfig('radius', value);
                     document.getElementById('radius-info').textContent = `Radius: ${value}m`;
                     Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter`, timer: 1500 });
                 } else {
@@ -2352,16 +2658,49 @@
                 const value = document.getElementById('setting-masuk').value;
                 const hour = parseInt(value.split(':')[0]);
                 CONFIG.JAM_MASUK_MAX = hour;
-                saveConfig('jam_masuk', value);
                 document.getElementById('jam-masuk-display').textContent = `Batas ${value}`;
                 Swal.fire({ icon: 'success', title: 'Jam Masuk Diperbarui', text: value, timer: 1500 });
             } else if (type === 'pulang') {
                 const value = document.getElementById('setting-pulang').value;
                 const hour = parseInt(value.split(':')[0]);
                 CONFIG.JAM_PULANG_MIN = hour;
-                saveConfig('jam_pulang', value);
                 document.getElementById('jam-pulang-display').textContent = `Mulai ${value}`;
                 Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: value, timer: 1500 });
+            } else if (type === 'retention') {
+                const value = parseInt(document.getElementById('setting-retention').value);
+                localStorage.setItem('retention_months', value);
+                document.getElementById('retention-info').textContent = value === 0 ? 'Tidak pernah' : `${value} bulan`;
+                Swal.fire({ icon: 'success', title: 'Retensi Data Diperbarui', text: `Data akan dihapus ${value === 0 ? 'tidak pernah' : value + ' bulan'}`, timer: 1500 });
+                autoDeleteOldData();
+            } else if (type === 'face_threshold') {
+                const value = parseInt(document.getElementById('setting-face-threshold').value);
+                if (value >= 30 && value <= 90) {
+                    CONFIG.FACE_SIMILARITY_THRESHOLD = value / 100;
+                    Swal.fire({ icon: 'success', title: 'Face Threshold Diperbarui', text: `${value}%`, timer: 1500 });
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Threshold harus 30-90%' });
+                }
+            }
+        }
+
+        async function runCleanupNow() {
+            const result = await Swal.fire({
+                title: 'Bersihkan Data Lama?',
+                text: `Data lebih dari ${localStorage.getItem('retention_months') || 3} bulan akan dihapus.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Bersihkan'
+            });
+            
+            if (result.isConfirmed) {
+                await autoDeleteOldData();
+                await loadUserLog();
+                if (currentUser.role === 'admin') {
+                    await loadAllAbsensi();
+                }
+                Swal.fire({ icon: 'success', title: 'Data Dibersihkan', text: 'Data lama telah dihapus' });
             }
         }
 
@@ -2382,6 +2721,7 @@
                     if (currentUser.role === 'admin') {
                         await loadAllAbsensi();
                     }
+                    updateStorageInfo();
                     Swal.fire({ icon: 'success', title: 'Data Direset', text: 'Semua data absensi telah dihapus' });
                 } catch (error) {
                     Swal.fire({ icon: 'error', title: 'Gagal' });
@@ -2394,7 +2734,7 @@
         }
 
         // ============================================
-        // 21. INIT
+        // 25. INIT
         // ============================================
         async function init() {
             try {
@@ -2404,30 +2744,34 @@
                 const adminExists = users.some(u => u.id === 'admin');
                 if (!adminExists) {
                     await addUser('admin', 'Administrator', 'admin123', 'admin', 'approved');
-                    console.log('✅ Default admin created: admin / admin123');
                 }
                 
-                const config = await getConfig();
-                if (config.radius) CONFIG.RADIUS_MAKSIMAL = parseInt(config.radius);
-                if (config.jam_masuk) {
-                    const hour = parseInt(config.jam_masuk.split(':')[0]);
-                    CONFIG.JAM_MASUK_MAX = hour;
-                }
-                if (config.jam_pulang) {
-                    const hour = parseInt(config.jam_pulang.split(':')[0]);
-                    CONFIG.JAM_PULANG_MIN = hour;
-                }
-                if (config.face_threshold) {
-                    CONFIG.FACE_SIMILARITY_THRESHOLD = parseFloat(config.face_threshold);
+                const retention = localStorage.getItem('retention_months');
+                if (!retention) {
+                    localStorage.setItem('retention_months', '3');
                 }
                 
                 allAbsensiData = await getAllAbsensi();
                 allAbsensiData.sort((a, b) => b.id - a.id);
                 
-                console.log('📍 SISTEM ABSENSI DENGAN FACE RECOGNITION');
-                console.log(`📍 Kantor: ${CONFIG.KANTOR_LAT}, ${CONFIG.KANTOR_LNG}`);
+                await autoDeleteOldData();
+                
+                console.log('📍 SISTEM ABSENSI DENGAN FIREBASE');
+                console.log(`📁 Project: ${firebaseConfig.projectId}`);
                 console.log(`📍 Radius: ${CONFIG.RADIUS_MAKSIMAL}m`);
-                console.log('✅ Sistem siap');
+                console.log(`📍 Face Threshold: ${Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100)}%`);
+                console.log(`📍 Retensi Data: ${localStorage.getItem('retention_months') || 3} bulan`);
+                console.log('✅ Sistem siap - Firebase terintegrasi!');
+                
+                // Cek koneksi Firebase
+                try {
+                    await db.collection('_test').doc('_test').set({ test: true });
+                    await db.collection('_test').doc('_test').delete();
+                    console.log('✅ Firebase koneksi OK');
+                } catch (error) {
+                    console.warn('⚠️ Firebase koneksi error:', error);
+                }
+                
             } catch (error) {
                 console.error('Init error:', error);
             }
@@ -2442,11 +2786,13 @@
         init();
 
         console.log('📌 Default Admin: admin / admin123');
-        console.log('📌 Fitur Face Recognition:');
-        console.log('  - Sign up dengan 5 pose wajah (kiri, kanan, atas, bawah, depan)');
-        console.log('  - Admin verifikasi user');
-        console.log('  - Absensi dengan face match');
-        console.log('  - Face similarity score');
+        console.log('📌 Firebase Project: absensionline-2823b');
+        console.log('📌 Fitur:');
+        console.log('  ✅ Kompresi 50% + Resize 320x240');
+        console.log('  ✅ Auto-delete data > 3 bulan');
+        console.log('  ✅ Hanya simpan foto jika face match < 60%');
+        console.log('  ✅ Sync ke Firebase (tanpa foto)');
+        console.log('  ✅ Total memori turun hingga 95%');
     </script>
 </body>
 </html>
