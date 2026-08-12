@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Absensi - Firebase Integration</title>
+    <title>Sistem Absensi Karyawan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <!-- ========================================== -->
-    <!-- FIREBASE SDK (CDN - Compat) -->
-    <!-- ========================================== -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
@@ -143,7 +141,6 @@
         .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
 
-        /* Sync status */
         .sync-status {
             display: inline-flex;
             align-items: center;
@@ -161,7 +158,7 @@
 <body>
 
     <!-- ========================================== -->
-    <!-- PAGE LOGIN -->
+    <!-- PAGE LOGIN - TANPA TULISAN DEFAULT ADMIN -->
     <!-- ========================================== -->
     <div id="login-page" class="login-bg flex items-center justify-center p-4">
         <div class="glass w-full max-w-md p-8">
@@ -235,11 +232,9 @@
                 <p class="text-xs text-slate-400 text-center">* Pendaftaran akan di-review oleh Admin</p>
             </form>
 
+            <!-- HAPUS TULISAN DEFAULT ADMIN DI SINI -->
             <div class="mt-4 text-center">
-                <p class="text-xs text-slate-400 dark:text-slate-500">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Default Admin: admin
-                </p>
+                <!-- KOSONGKAN - TIDAK ADA TULISAN DEFAULT ADMIN -->
             </div>
         </div>
     </div>
@@ -336,7 +331,7 @@
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
                     <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
+                <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
                     <button onclick="showPendingUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-user-clock text-yellow-600 text-xl block mb-1"></i>
                         Verifikasi
@@ -360,6 +355,11 @@
                     <button onclick="syncToFirebase()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-cloud-upload-alt text-indigo-600 text-xl block mb-1"></i>
                         Sync ke Cloud
+                    </button>
+                    <!-- TOMBOL GANTI PASSWORD ADMIN -->
+                    <button onclick="showChangePassword()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                        <i class="fas fa-key text-red-600 text-xl block mb-1"></i>
+                        Ganti Password
                     </button>
                 </div>
             </div>
@@ -650,10 +650,10 @@
             </div>
         </div>
 
-        <!-- Modal Reset Password -->
+        <!-- Modal Reset Password User -->
         <div id="reset-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
-                <h3 class="font-bold text-lg mb-4"><i class="fas fa-key mr-2"></i>Reset Password</h3>
+                <h3 class="font-bold text-lg mb-4"><i class="fas fa-key mr-2"></i>Reset Password User</h3>
                 <p class="text-sm text-slate-500 mb-4" id="reset-user-info">User: -</p>
                 <form id="reset-password-form">
                     <input type="password" id="reset-new-password" placeholder="Password Baru" 
@@ -665,6 +665,56 @@
                             <i class="fas fa-save mr-1"></i>Simpan
                         </button>
                         <button type="button" onclick="closeModal('reset-password-modal')" 
+                                class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
+                            Batal
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL GANTI PASSWORD ADMIN (BARU) -->
+        <!-- ========================================== -->
+        <div id="change-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg"><i class="fas fa-key text-red-600 mr-2"></i>Ganti Password Admin</h3>
+                    <button onclick="closeModal('change-password-modal')" class="text-slate-500 hover:text-slate-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-slate-500 mb-4">Masukkan password lama dan password baru Anda</p>
+                <form id="change-password-form">
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            <i class="fas fa-lock mr-2"></i>Password Lama
+                        </label>
+                        <input type="password" id="old-password" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                               placeholder="Masukkan password lama" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            <i class="fas fa-lock mr-2"></i>Password Baru
+                        </label>
+                        <input type="password" id="new-password-admin" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                               placeholder="Minimal 4 karakter" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            <i class="fas fa-lock mr-2"></i>Konfirmasi Password Baru
+                        </label>
+                        <input type="password" id="confirm-password-admin" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                               placeholder="Konfirmasi password baru" required>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
+                            <i class="fas fa-save mr-1"></i>Ganti Password
+                        </button>
+                        <button type="button" onclick="closeModal('change-password-modal')" 
                                 class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
                             Batal
                         </button>
@@ -746,9 +796,8 @@
     <!-- ========================================== -->
     <script>
         // ============================================
-        // 1. FIREBASE CONFIGURATION
+        // FIREBASE CONFIGURATION
         // ============================================
-        // 🔥 PASTE KONFIGURASI FIREBASE ANDA DI SINI 🔥
         const firebaseConfig = {
             apiKey: "AIzaSyAGHTvVTBG0cEPCBd3hVnNABa1_Lj95cZU",
             authDomain: "absensionline-2823b.firebaseapp.com",
@@ -759,18 +808,12 @@
             measurementId: "G-02YYE4FTV7"
         };
 
-        // ============================================
-        // 2. INIT FIREBASE
-        // ============================================
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
 
-        console.log('🔥 Firebase initialized successfully!');
-        console.log('📁 Project:', firebaseConfig.projectId);
-
         // ============================================
-        // 3. DATABASE INDEXEDDB (LOCAL)
+        // DATABASE INDEXEDDB
         // ============================================
         const DB_NAME = 'AbsensiFaceOptimizedDB';
         const DB_VERSION = 4;
@@ -820,7 +863,7 @@
         }
 
         // ============================================
-        // 4. USER MANAGEMENT (LOCAL)
+        // USER MANAGEMENT
         // ============================================
         function getUsers() {
             return new Promise((resolve, reject) => {
@@ -904,7 +947,7 @@
         }
 
         // ============================================
-        // 5. FACE DATA (LOCAL)
+        // FACE DATA
         // ============================================
         function saveFaceData(userId, type, imageData) {
             return new Promise((resolve, reject) => {
@@ -953,7 +996,7 @@
         }
 
         // ============================================
-        // 6. ABSENSI (LOCAL)
+        // ABSENSI
         // ============================================
         function saveAbsensi(data) {
             return new Promise((resolve, reject) => {
@@ -997,7 +1040,7 @@
         }
 
         // ============================================
-        // 7. AUTO DELETE OLD DATA
+        // AUTO DELETE OLD DATA
         // ============================================
         async function autoDeleteOldData() {
             try {
@@ -1035,7 +1078,7 @@
         }
 
         // ============================================
-        // 8. STORAGE INFO
+        // STORAGE INFO
         // ============================================
         async function updateStorageInfo() {
             try {
@@ -1064,10 +1107,8 @@
         }
 
         // ============================================
-        // 9. FIREBASE SYNC FUNCTIONS
+        // FIREBASE SYNC FUNCTIONS
         // ============================================
-
-        // Update sync status
         function updateSyncStatus(status, message = '') {
             const el = document.getElementById('sync-status');
             if (!el) return;
@@ -1088,7 +1129,6 @@
             }
         }
 
-        // Sync Users to Firebase
         async function syncUsersToFirebase() {
             try {
                 updateSyncStatus('syncing', 'Syncing users...');
@@ -1122,7 +1162,6 @@
             }
         }
 
-        // Sync Face Data to Firebase
         async function syncFaceDataToFirebase(userId) {
             try {
                 const faceData = await getFaceDataByUser(userId);
@@ -1131,14 +1170,8 @@
                 let syncedCount = 0;
                 for (const face of faceData) {
                     const storageRef = storage.ref(`faces/${userId}/${face.type}.jpg`);
-                    
-                    // Upload ke Storage
                     await storageRef.putString(face.image, 'data_url');
-                    
-                    // Get download URL
                     const downloadURL = await storageRef.getDownloadURL();
-                    
-                    // Save metadata ke Firestore
                     await db.collection('faces').doc(`${userId}_${face.type}`).set({
                         user_id: userId,
                         type: face.type,
@@ -1146,7 +1179,6 @@
                         created_at: face.created_at || new Date().toISOString(),
                         updated_at: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
-                    
                     syncedCount++;
                 }
                 
@@ -1158,7 +1190,6 @@
             }
         }
 
-        // Sync Absensi to Firebase (TANPA FOTO)
         async function syncAbsensiToFirebase() {
             try {
                 updateSyncStatus('syncing', 'Syncing attendance...');
@@ -1171,7 +1202,6 @@
                 
                 let syncedCount = 0;
                 for (const item of absensiData) {
-                    // Hanya data text, tanpa foto
                     const docData = {
                         local_id: item.id,
                         user_id: item.user_id,
@@ -1191,7 +1221,6 @@
                     
                     await db.collection('absensi').doc(`absensi_${item.id}`).set(docData, { merge: true });
                     
-                    // Jika ada foto audit, upload ke Storage
                     if (item.is_audit && item.foto) {
                         try {
                             const storageRef = storage.ref(`audit/${item.user_id}/${item.tanggal}_${item.jenis_absen}.jpg`);
@@ -1218,7 +1247,6 @@
             }
         }
 
-        // MAIN SYNC FUNCTION
         window.syncToFirebase = async function() {
             if (!navigator.onLine) {
                 Swal.fire({
@@ -1248,7 +1276,6 @@
                     }
                 }
                 
-                // Update cloud status
                 document.getElementById('cloud-status').textContent = '✅ Tersinkronisasi';
                 
                 Swal.fire({
@@ -1273,7 +1300,6 @@
             }
         };
 
-        // Check cloud status
         async function checkCloudStatus() {
             try {
                 const snapshot = await db.collection('absensi').limit(1).get();
@@ -1289,7 +1315,7 @@
         }
 
         // ============================================
-        // 10. KONFIGURASI
+        // KONFIGURASI
         // ============================================
         const CONFIG = {
             KANTOR_LAT: -6.1923239,
@@ -1326,7 +1352,7 @@
         let regContext = null;
 
         // ============================================
-        // 11. OPTIMIZED IMAGE CAPTURE
+        // OPTIMIZED IMAGE CAPTURE
         // ============================================
         function ambilFotoOptimasi(kualitas = CONFIG.IMAGE_QUALITY) {
             const videoElement = video;
@@ -1348,7 +1374,7 @@
         }
 
         // ============================================
-        // 12. FACE COMPARISON
+        // FACE COMPARISON
         // ============================================
         function compareFaces(image1, image2) {
             return new Promise((resolve) => {
@@ -1429,7 +1455,7 @@
         }
 
         // ============================================
-        // 13. LOGIN / SIGNUP
+        // LOGIN / SIGNUP
         // ============================================
         function showLogin() {
             document.getElementById('login-form').classList.remove('hidden');
@@ -1501,7 +1527,6 @@
             loadUserLog();
             updateStorageInfo();
             
-            // Cek cloud status jika admin
             if (user.role === 'admin') {
                 checkCloudStatus();
             }
@@ -1556,7 +1581,82 @@
         }
 
         // ============================================
-        // 14. FACE REGISTRATION
+        // FITUR GANTI PASSWORD ADMIN
+        // ============================================
+        function showChangePassword() {
+            document.getElementById('change-password-modal').classList.remove('hidden');
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password-admin').value = '';
+            document.getElementById('confirm-password-admin').value = '';
+        }
+
+        document.getElementById('change-password-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const oldPassword = document.getElementById('old-password').value.trim();
+            const newPassword = document.getElementById('new-password-admin').value.trim();
+            const confirmPassword = document.getElementById('confirm-password-admin').value.trim();
+            
+            // Validasi
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                Swal.fire({ icon: 'warning', title: 'Lengkapi Data', text: 'Semua field harus diisi' });
+                return;
+            }
+            
+            if (newPassword.length < 4) {
+                Swal.fire({ icon: 'warning', title: 'Password Terlalu Pendek', text: 'Minimal 4 karakter' });
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                Swal.fire({ icon: 'warning', title: 'Password Tidak Sama', text: 'Konfirmasi password harus sama' });
+                return;
+            }
+            
+            // Cek password lama
+            try {
+                const user = await getUserById('admin');
+                if (!user) {
+                    Swal.fire({ icon: 'error', title: 'User Admin Tidak Ditemukan' });
+                    return;
+                }
+                
+                if (user.password !== oldPassword) {
+                    Swal.fire({ icon: 'error', title: 'Password Lama Salah', text: 'Masukkan password lama yang benar' });
+                    return;
+                }
+                
+                // Update password
+                user.password = newPassword;
+                await updateUser('admin', user);
+                
+                // Juga update di Firebase jika terhubung
+                try {
+                    await db.collection('users').doc('admin').update({
+                        password: newPassword,
+                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (firebaseError) {
+                    console.warn('Firebase update error:', firebaseError);
+                }
+                
+                closeModal('change-password-modal');
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: '✅ Password Berhasil Diubah!',
+                    text: 'Password admin telah diperbarui. Gunakan password baru untuk login berikutnya.',
+                    confirmButtonColor: '#3085d6'
+                });
+                
+            } catch (error) {
+                console.error('Change password error:', error);
+                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat mengganti password' });
+            }
+        });
+
+        // ============================================
+        // FACE REGISTRATION
         // ============================================
         async function startFaceRegistration() {
             const id = document.getElementById('signup-id').value.trim();
@@ -1653,7 +1753,6 @@
             const dot = document.getElementById(`step-dot-${regStep+1}`);
             dot.className = 'w-3 h-3 rounded-full bg-green-500';
             
-            // Efek flash
             const videoEl = regVideo;
             videoEl.style.transition = 'filter 0.1s';
             videoEl.style.filter = 'brightness(2)';
@@ -1712,7 +1811,7 @@
         }
 
         // ============================================
-        // 15. GPS TRACKING
+        // GPS TRACKING
         // ============================================
         function startGPSTracking() {
             if (!navigator.geolocation) {
@@ -1801,7 +1900,7 @@
         }
 
         // ============================================
-        // 16. KAMERA
+        // KAMERA
         // ============================================
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
@@ -1824,7 +1923,7 @@
         }
 
         // ============================================
-        // 17. CLOCK
+        // CLOCK
         // ============================================
         function updateClock() {
             const now = new Date();
@@ -1837,7 +1936,7 @@
         updateClock();
 
         // ============================================
-        // 18. PROSES ABSEN
+        // PROSES ABSEN
         // ============================================
         function showLoading(text, subtext) {
             document.getElementById('loading-overlay').classList.remove('hidden');
@@ -2041,7 +2140,6 @@
                         loadUserLog();
                         updateStorageInfo();
                         
-                        // Auto sync ke Firebase jika online
                         if (navigator.onLine && currentUser.role === 'admin') {
                             setTimeout(() => {
                                 syncToFirebase();
@@ -2065,7 +2163,7 @@
         }
 
         // ============================================
-        // 19. USER LOG
+        // USER LOG
         // ============================================
         function tambahkanKeLog(data) {
             const container = document.getElementById('log-container');
@@ -2151,7 +2249,7 @@
         }
 
         // ============================================
-        // 20. ADMIN - VERIFY PENDING USERS
+        // ADMIN - VERIFY PENDING USERS
         // ============================================
         async function showPendingUsers() {
             document.getElementById('verify-modal').classList.remove('hidden');
@@ -2233,7 +2331,6 @@
                 
                 await loadPendingUsers();
                 
-                // Sync ke Firebase setelah verifikasi
                 if (approve && navigator.onLine) {
                     await syncFaceDataToFirebase(userId);
                 }
@@ -2243,7 +2340,7 @@
         }
 
         // ============================================
-        // 21. ADMIN - KELOLA USER
+        // ADMIN - KELOLA USER
         // ============================================
         let resetTargetUser = null;
 
@@ -2384,7 +2481,7 @@
         }
 
         // ============================================
-        // 22. ADMIN - SEMUA ABSENSI
+        // ADMIN - SEMUA ABSENSI
         // ============================================
         async function showAllAbsensi() {
             document.getElementById('all-absensi-modal').classList.remove('hidden');
@@ -2469,7 +2566,7 @@
         }
 
         // ============================================
-        // 23. ADMIN - EXPORT EXCEL
+        // ADMIN - EXPORT EXCEL
         // ============================================
         function showExportModal() {
             document.getElementById('export-modal').classList.remove('hidden');
@@ -2633,7 +2730,7 @@
         }
 
         // ============================================
-        // 24. ADMIN - SETTINGS
+        // ADMIN - SETTINGS
         // ============================================
         function showSettings() {
             document.getElementById('settings-modal').classList.remove('hidden');
@@ -2734,7 +2831,7 @@
         }
 
         // ============================================
-        // 25. INIT
+        // INIT
         // ============================================
         async function init() {
             try {
@@ -2763,7 +2860,6 @@
                 console.log(`📍 Retensi Data: ${localStorage.getItem('retention_months') || 3} bulan`);
                 console.log('✅ Sistem siap - Firebase terintegrasi!');
                 
-                // Cek koneksi Firebase
                 try {
                     await db.collection('_test').doc('_test').set({ test: true });
                     await db.collection('_test').doc('_test').delete();
@@ -2785,13 +2881,12 @@
 
         init();
 
-        console.log('📌 Default Admin: admin / admin123');
-        console.log('📌 Firebase Project: absensionline-2823b');
         console.log('📌 Fitur:');
         console.log('  ✅ Kompresi 50% + Resize 320x240');
         console.log('  ✅ Auto-delete data > 3 bulan');
         console.log('  ✅ Hanya simpan foto jika face match < 60%');
         console.log('  ✅ Sync ke Firebase (tanpa foto)');
+        console.log('  ✅ Ganti Password Admin');
         console.log('  ✅ Total memori turun hingga 95%');
     </script>
 </body>
