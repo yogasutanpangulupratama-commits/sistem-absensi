@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- SheetJS untuk export Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
@@ -94,7 +93,6 @@
             body { background: #0f172a; }
         }
 
-        /* Scrollbar */
         .custom-scroll::-webkit-scrollbar {
             width: 4px;
         }
@@ -205,7 +203,7 @@
                         <i class="fas fa-database text-green-600 text-xl block mb-1"></i>
                         Semua Absensi
                     </button>
-                    <button onclick="exportToExcel()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                    <button onclick="showExportModal()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-file-excel text-emerald-600 text-xl block mb-1"></i>
                         Export Excel
                     </button>
@@ -327,7 +325,6 @@
                     </button>
                 </div>
                 <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
-                    <!-- Form Tambah User -->
                     <form id="add-user-form" class="mb-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-xl space-y-2">
                         <h4 class="font-semibold text-sm"><i class="fas fa-user-plus mr-2"></i>Tambah User Baru</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -347,14 +344,12 @@
                         </button>
                     </form>
                     
-                    <!-- Search User -->
                     <div class="mb-3">
                         <input type="text" id="search-user" placeholder="Cari user..." 
                                class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
                                oninput="filterUserList()">
                     </div>
                     
-                    <!-- Daftar User -->
                     <div id="user-list" class="space-y-2">
                         <p class="text-center text-sm text-slate-400 py-2">Memuat...</p>
                     </div>
@@ -372,7 +367,6 @@
                     </button>
                 </div>
                 <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
-                    <!-- Filter Admin -->
                     <div class="flex flex-wrap gap-2 mb-4">
                         <input type="text" id="admin-search-user" placeholder="Cari ID/Nama..." 
                                class="flex-1 min-w-[120px] px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
@@ -392,7 +386,6 @@
                         </button>
                     </div>
                     
-                    <!-- Tabel Data -->
                     <div id="all-absensi-container" class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead class="bg-slate-100 dark:bg-slate-700">
@@ -416,6 +409,56 @@
                     </div>
                     <div class="mt-2 text-xs text-slate-400">
                         Total: <span id="admin-total-count">0</span> data
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL EXPORT EXCEL - DENGAN PEMILIHAN TANGGAL -->
+        <div id="export-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg"><i class="fas fa-file-excel text-emerald-600 mr-2"></i>Export Excel</h3>
+                    <button onclick="closeModal('export-modal')" class="text-slate-500 hover:text-slate-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            <i class="fas fa-calendar-alt mr-2"></i>Pilih Tanggal
+                        </label>
+                        <input type="date" id="export-date" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                        <p class="text-xs text-slate-400 mt-1">Kosongkan untuk export semua data</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            <i class="fas fa-filter mr-2"></i>Filter User (Opsional)
+                        </label>
+                        <input type="text" id="export-user-filter" placeholder="Cari ID atau Nama..." 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                    </div>
+                    
+                    <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-sm">
+                        <p class="text-slate-600 dark:text-slate-300">
+                            <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                            Data akan diexport ke format <b>.xlsx</b>
+                        </p>
+                        <p class="text-xs text-slate-400 mt-1" id="export-preview">0 data akan diexport</p>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="exportToExcel()" 
+                                class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition">
+                            <i class="fas fa-download mr-2"></i>Download Excel
+                        </button>
+                        <button onclick="closeModal('export-modal')" 
+                                class="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-bold transition">
+                            Batal
+                        </button>
                     </div>
                 </div>
             </div>
@@ -732,7 +775,6 @@
             document.getElementById('current-user').textContent = `User: ${user.id} - ${user.name}`;
             document.getElementById('user-role-display').textContent = user.role === 'admin' ? '👑 Admin' : '👤 User';
             
-            // Update jam display
             document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
             document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
             
@@ -740,7 +782,6 @@
                 document.getElementById('admin-panel').classList.remove('hidden');
             }
             
-            // Set default date filter
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('user-filter-date').value = today;
             
@@ -1081,7 +1122,7 @@
         }
 
         // ============================================
-        // 11. USER LOG - DENGAN FILTER TANGGAL
+        // 11. USER LOG
         // ============================================
         function tambahkanKeLog(data) {
             const container = document.getElementById('log-container');
@@ -1124,7 +1165,6 @@
                     filteredData = data.filter(item => item.tanggal === filterDate);
                 }
                 
-                // Sort descending
                 filteredData.sort((a, b) => {
                     if (a.tanggal !== b.tanggal) return b.tanggal.localeCompare(a.tanggal);
                     return b.id - a.id;
@@ -1179,7 +1219,6 @@
                     return;
                 }
                 
-                // Filter
                 const search = document.getElementById('search-user')?.value.toLowerCase() || '';
                 const filtered = users.filter(u => 
                     u.id.toLowerCase().includes(search) || 
@@ -1342,7 +1381,6 @@
         async function loadAllAbsensi() {
             try {
                 allAbsensiData = await getAllAbsensi();
-                // Sort by newest
                 allAbsensiData.sort((a, b) => b.id - a.id);
                 filteredAbsensiData = [...allAbsensiData];
                 renderAdminTable();
@@ -1417,13 +1455,68 @@
         }
 
         // ============================================
-        // 14. ADMIN - EXPORT EXCEL
+        // 14. ADMIN - EXPORT EXCEL (DENGAN PILIHAN TANGGAL)
         // ============================================
+        function showExportModal() {
+            document.getElementById('export-modal').classList.remove('hidden');
+            document.getElementById('export-date').value = '';
+            document.getElementById('export-user-filter').value = '';
+            document.getElementById('export-preview').textContent = '0 data akan diexport';
+            
+            // Preview data
+            updateExportPreview();
+        }
+
+        function updateExportPreview() {
+            const date = document.getElementById('export-date').value;
+            const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
+            
+            let data = allAbsensiData;
+            
+            if (date) {
+                data = data.filter(item => item.tanggal === date);
+            }
+            
+            if (userFilter) {
+                data = data.filter(item => 
+                    item.user_id.toLowerCase().includes(userFilter) ||
+                    (item.user_name && item.user_name.toLowerCase().includes(userFilter))
+                );
+            }
+            
+            document.getElementById('export-preview').textContent = `${data.length} data akan diexport`;
+        }
+
+        // Event listener untuk preview
+        document.getElementById('export-date').addEventListener('change', updateExportPreview);
+        document.getElementById('export-user-filter').addEventListener('input', updateExportPreview);
+
         async function exportToExcel() {
             try {
-                const data = await getAllAbsensi();
+                const date = document.getElementById('export-date').value;
+                const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
+                
+                let data = await getAllAbsensi();
+                
+                // Filter tanggal
+                if (date) {
+                    data = data.filter(item => item.tanggal === date);
+                }
+                
+                // Filter user
+                if (userFilter) {
+                    data = data.filter(item => 
+                        item.user_id.toLowerCase().includes(userFilter) ||
+                        (item.user_name && item.user_name.toLowerCase().includes(userFilter))
+                    );
+                }
+                
                 if (data.length === 0) {
-                    Swal.fire({ icon: 'info', title: 'Tidak Ada Data', text: 'Belum ada data absensi untuk diexport' });
+                    Swal.fire({ 
+                        icon: 'info', 
+                        title: 'Tidak Ada Data', 
+                        text: 'Tidak ada data absensi sesuai filter yang dipilih' 
+                    });
                     return;
                 }
                 
@@ -1460,9 +1553,21 @@
                 ];
                 ws['!cols'] = colWidths;
                 
-                // Generate file
-                const filename = `Absensi_${new Date().toISOString().split('T')[0]}.xlsx`;
+                // Generate filename dengan tanggal jika ada filter
+                let filename = 'Absensi';
+                if (date) {
+                    filename += `_${date}`;
+                } else {
+                    filename += `_${new Date().toISOString().split('T')[0]}`;
+                }
+                if (userFilter) {
+                    filename += `_${userFilter}`;
+                }
+                filename += '.xlsx';
+                
                 XLSX.writeFile(wb, filename);
+                
+                closeModal('export-modal');
                 
                 Swal.fire({
                     icon: 'success',
@@ -1473,7 +1578,11 @@
                 
             } catch (error) {
                 console.error('Export error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal Export', text: 'Terjadi kesalahan saat export data' });
+                Swal.fire({ 
+                    icon: 'error', 
+                    title: 'Gagal Export', 
+                    text: 'Terjadi kesalahan saat export data' 
+                });
             }
         }
 
@@ -1494,7 +1603,6 @@
                     CONFIG.RADIUS_MAKSIMAL = value;
                     saveConfig('radius', value);
                     document.getElementById('radius-info').textContent = `Radius: ${value}m`;
-                    document.getElementById('status-lokasi').textContent = '✅ Updated';
                     Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter`, timer: 1500 });
                 } else {
                     Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Radius harus 1-100 meter' });
@@ -1569,6 +1677,10 @@
                     CONFIG.JAM_PULANG_MIN = hour;
                 }
                 
+                // Load all data for admin
+                allAbsensiData = await getAllAbsensi();
+                allAbsensiData.sort((a, b) => b.id - a.id);
+                
                 console.log('📍 SISTEM ABSENSI GEOFENCING');
                 console.log(`📍 Kantor: ${CONFIG.KANTOR_LAT}, ${CONFIG.KANTOR_LNG}`);
                 console.log(`📍 Radius: ${CONFIG.RADIUS_MAKSIMAL}m`);
@@ -1586,14 +1698,11 @@
         init();
 
         console.log('📌 Default Admin: admin / admin123');
-        console.log('📌 Fitur Admin:');
-        console.log('  - Kelola User (Tambah/Hapus/Reset Password)');
-        console.log('  - Lihat Semua Absensi (dengan filter)');
-        console.log('  - Export Excel');
-        console.log('  - Pengaturan (Radius, Jam)');
-        console.log('📌 Fitur User:');
-        console.log('  - Absen Masuk/Pulang (Geofencing 20m)');
-        console.log('  - Lihat Riwayat Absensi (filter tanggal)');
+        console.log('📌 Fitur Export Excel:');
+        console.log('  - Pilih tanggal spesifik');
+        console.log('  - Filter berdasarkan user');
+        console.log('  - Preview jumlah data');
+        console.log('  - Nama file otomatis');
     </script>
 </body>
 </html>
