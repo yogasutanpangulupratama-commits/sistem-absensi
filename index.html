@@ -1768,55 +1768,43 @@
         }
 
         // ============================================
-        // 16. INIT
-        // ============================================
-        async function init() {
-            try {
-                await initDatabase();
-                
-                const users = await getUsers();
-                const adminExists = users.some(u => u.id === 'admin');
-                if (!adminExists) {
-                    await addUser('admin', 'Administrator', 'admin123', 'admin');
-                    console.log('✅ Default admin created: admin / admin123');
-                }
-                
-                const config = await getConfig();
-                if (config.radius) CONFIG.RADIUS_MAKSIMAL = parseInt(config.radius);
-                if (config.jam_masuk) {
-                    const hour = parseInt(config.jam_masuk.split(':')[0]);
-                    CONFIG.JAM_MASUK_MAX = hour;
-                }
-                if (config.jam_pulang) {
-                    const hour = parseInt(config.jam_pulang.split(':')[0]);
-                    CONFIG.JAM_PULANG_MIN = hour;
-                }
-                
-                allAbsensiData = await getAllAbsensi();
-                allAbsensiData.sort((a, b) => b.id - a.id);
-                
-                console.log('📍 SISTEM ABSENSI GEOFENCING');
-                console.log(`📍 Kantor: ${CONFIG.KANTOR_LAT}, ${CONFIG.KANTOR_LNG}`);
-                console.log(`📍 Radius: ${CONFIG.RADIUS_MAKSIMAL}m`);
-                console.log('✅ Sistem siap');
-            } catch (error) {
-                console.error('Init error:', error);
-            }
+// 16. INIT
+// ============================================
+async function init() {
+    try {
+        await initDatabase();
+        
+        const users = await getUsers();
+        const adminExists = users.some(u => u.id === 'admin');
+        if (!adminExists) {
+            await addUser('admin', 'Administrator', 'admin123', 'admin');
         }
+        
+        const config = await getConfig();
+        if (config.radius) CONFIG.RADIUS_MAKSIMAL = parseInt(config.radius);
+        if (config.jam_masuk) {
+            const hour = parseInt(config.jam_masuk.split(':')[0]);
+            CONFIG.JAM_MASUK_MAX = hour;
+        }
+        if (config.jam_pulang) {
+            const hour = parseInt(config.jam_pulang.split(':')[0]);
+            CONFIG.JAM_PULANG_MIN = hour;
+        }
+        
+        allAbsensiData = await getAllAbsensi();
+        allAbsensiData.sort((a, b) => b.id - a.id);
+        
+    } catch (error) {
+        console.error('Init error:', error);
+    }
+}
 
-        window.addEventListener('beforeunload', () => {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-        });
+window.addEventListener('beforeunload', () => {
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+});
 
-        init();
-
-        console.log('📌 Fitur Export Excel:');
-        console.log('  - Rentang tanggal (dari - sampai)');
-        console.log('  - Quick date: Hari Ini, Minggu Ini, Bulan Ini, Semua');
-        console.log('  - Filter user');
-        console.log('  - Preview data');
-        console.log('  - Nama file otomatis dengan rentang tanggal');
+init();
     </script>
 </body>
 </html>
