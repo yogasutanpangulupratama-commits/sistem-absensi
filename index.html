@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Absensi dengan Geofencing</title>
+    <title>Sistem Absensi Karyawan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         
-        /* Loading Spinner */
         .loader {
             border-top-color: #3498db;
-            -webkit-animation: spinner 0.6s linear infinite;
             animation: spinner 0.6s linear infinite;
         }
         @keyframes spinner {
@@ -21,17 +19,30 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Status indikator GPS */
         .gps-pulse {
             animation: pulse 1.5s ease-in-out infinite;
         }
         @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
+            0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.5; transform: scale(0.8); }
-            100% { opacity: 1; transform: scale(1); }
         }
 
-        /* Map mini */
+        /* Login Page */
+        .login-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .glass-dark {
+            background: rgba(30,41,59,0.95);
+        }
+
+        /* Mini Map */
         .mini-map {
             background: #1a1a2e;
             border-radius: 12px;
@@ -63,7 +74,7 @@
         }
         .radius-circle {
             position: absolute;
-            border: 2px dashed rgba(239, 68, 68, 0.3);
+            border: 2px dashed rgba(239,68,68,0.3);
             border-radius: 50%;
             top: 50%;
             left: 50%;
@@ -72,117 +83,264 @@
             width: 80%;
             height: 80%;
         }
+
+        @media (prefers-color-scheme: dark) {
+            .glass { background: rgba(30,41,59,0.95); }
+            body { background: #0f172a; }
+        }
     </style>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 min-h-screen">
+<body>
 
-    <!-- ========== HEADER ========== -->
-    <header class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-4 shadow-lg">
-        <div class="max-w-md mx-auto">
-            <div class="flex justify-between items-center">
+    <!-- ========================================== -->
+    <!-- PAGE LOGIN -->
+    <!-- ========================================== -->
+    <div id="login-page" class="login-bg flex items-center justify-center p-4">
+        <div class="glass w-full max-w-md p-8">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user-check text-white text-3xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800 dark:text-white">📍 Absensi Geofencing</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Radius 20 meter dari kantor</p>
+                <p class="text-xs text-slate-400 mt-1">-6.1923239, 106.9701343</p>
+            </div>
+
+            <form id="login-form" class="space-y-4">
                 <div>
-                    <h1 class="text-xl font-bold">📍 Absensi Geofencing</h1>
-                    <p class="text-xs text-blue-200">Radius 20 meter dari kantor</p>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <i class="fas fa-id-card mr-2"></i>ID Karyawan
+                    </label>
+                    <input type="text" id="login-username" 
+                           class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                           placeholder="Masukkan ID (contoh: EMP001)" required>
                 </div>
-                <div class="text-right">
-                    <p id="current-time" class="text-lg font-bold text-yellow-300"></p>
-                    <p id="current-date" class="text-xs text-blue-200"></p>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <i class="fas fa-lock mr-2"></i>Password
+                    </label>
+                    <input type="password" id="login-password" 
+                           class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                           placeholder="Masukkan password" required>
                 </div>
-            </div>
-        </div>
-    </header>
+                <button type="submit" 
+                        class="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold transition-all transform hover:scale-[1.02]">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Login
+                </button>
+            </form>
 
-    <!-- ========== MAIN CONTENT ========== -->
-    <main class="max-w-md mx-auto p-4">
-        
-        <!-- Status GPS & Lokasi -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500 gps-pulse"></span>
-                    <span id="gps-text" class="text-sm font-medium text-slate-600 dark:text-slate-300">Mencari GPS...</span>
-                </div>
-                <div class="text-right">
-                    <span id="jarak-text" class="text-sm font-bold text-slate-700 dark:text-slate-300">-- m</span>
-                    <span class="text-xs text-slate-400 block">dari kantor</span>
-                </div>
-            </div>
-            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                <i class="fas fa-map-pin text-red-500 mr-1"></i>
-                Titik Kantor: -6.1923239, 106.9701343
-            </div>
-        </div>
-
-        <!-- Mini Map Visual -->
-        <div class="mini-map mb-4 relative overflow-hidden">
-            <div class="radius-circle"></div>
-            <div class="dot-center"></div>
-            <div id="user-dot" class="dot-user" style="display:none;"></div>
-            <div class="absolute bottom-2 left-2 text-white text-xs opacity-50">
-                <span class="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span> Kantor
-                <span class="inline-block w-2 h-2 bg-blue-500 rounded-full ml-2 mr-1"></span> Anda
-            </div>
-            <div class="absolute top-2 right-2 text-white text-xs bg-black/30 px-2 py-1 rounded">
-                Radius 20m
-            </div>
-        </div>
-
-        <!-- Informasi Koordinat -->
-        <div class="grid grid-cols-2 gap-2 mb-4">
-            <div class="bg-white dark:bg-slate-800 rounded-xl p-2 text-center shadow">
-                <p class="text-xs text-slate-400">Lokasi Kantor</p>
-                <p class="text-xs font-mono text-slate-700 dark:text-slate-300">-6.1923, 106.9701</p>
-            </div>
-            <div class="bg-white dark:bg-slate-800 rounded-xl p-2 text-center shadow">
-                <p class="text-xs text-slate-400">Status Anda</p>
-                <p id="status-lokasi" class="text-xs font-bold text-red-500">Di luar area</p>
-            </div>
-        </div>
-
-        <!-- Kamera -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden mb-4">
-            <div class="p-3 bg-slate-50 dark:bg-slate-700 border-b flex justify-between items-center">
-                <span class="text-sm font-semibold"><i class="fas fa-camera mr-2"></i>Kamera</span>
-                <span id="camera-status" class="text-xs text-green-600"><i class="fas fa-circle text-green-500"></i> Aktif</span>
-            </div>
-            <div class="aspect-[4/3] bg-black relative">
-                <video id="webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1]"></video>
-                <canvas id="canvas" class="hidden"></canvas>
-                <div class="absolute inset-0 border-2 border-blue-500/30 m-3 rounded-lg pointer-events-none"></div>
-            </div>
-        </div>
-
-        <!-- Tombol Absen -->
-        <div class="grid grid-cols-2 gap-4">
-            <button onclick="prosesAbsen('masuk')" 
-                    class="p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg transition transform active:scale-95 font-bold">
-                <i class="fas fa-sign-in-alt text-2xl block mb-1"></i>
-                ABSEN MASUK
-                <span class="block text-xs font-normal text-blue-200">Batas 08:00</span>
-            </button>
-            <button onclick="prosesAbsen('pulang')" 
-                    class="p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg transition transform active:scale-95 font-bold">
-                <i class="fas fa-sign-out-alt text-2xl block mb-1"></i>
-                ABSEN PULANG
-                <span class="block text-xs font-normal text-emerald-200">Mulai 16:00</span>
-            </button>
-        </div>
-
-        <!-- Log Absensi -->
-        <div class="mt-6">
-            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">
-                <i class="fas fa-list-ul mr-2"></i>Log Absensi
-            </h3>
-            <div id="log-container" class="space-y-3 max-h-96 overflow-y-auto">
-                <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">
-                    <i class="fas fa-inbox text-2xl block mb-2"></i>
-                    Belum ada data
+            <div class="mt-4 text-center">
+                <p class="text-xs text-slate-400 dark:text-slate-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Default Admin: admin / admin123
                 </p>
             </div>
         </div>
-    </main>
+    </div>
 
-    <!-- ========== LOADING OVERLAY ========== -->
+    <!-- ========================================== -->
+    <!-- MAIN APP (Hidden) -->
+    <!-- ========================================== -->
+    <div id="main-app" class="hidden min-h-screen bg-slate-100 dark:bg-slate-900">
+        
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-4 shadow-lg sticky top-0 z-10">
+            <div class="max-w-md mx-auto">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-xl font-bold">📍 Absensi Geofencing</h1>
+                        <p class="text-xs text-blue-200" id="user-role-display">👤 User</p>
+                    </div>
+                    <div class="text-right">
+                        <p id="current-time" class="text-lg font-bold text-yellow-300"></p>
+                        <p id="current-date" class="text-xs text-blue-200"></p>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-2 text-xs">
+                    <span class="text-blue-200" id="current-user">User: -</span>
+                    <button onclick="logout()" class="bg-red-500/30 hover:bg-red-500/50 px-3 py-1 rounded-full transition">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-md mx-auto p-4 pb-20">
+            
+            <!-- Admin Panel -->
+            <div id="admin-panel" class="hidden mb-4">
+                <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
+                    <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button onclick="showManageUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                        <i class="fas fa-users text-blue-600 text-xl block mb-1"></i>
+                        Kelola User
+                    </button>
+                    <button onclick="showSettings()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                        <i class="fas fa-cog text-purple-600 text-xl block mb-1"></i>
+                        Pengaturan
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status GPS -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500 gps-pulse"></span>
+                        <span id="gps-text" class="text-sm font-medium">Mencari GPS...</span>
+                    </div>
+                    <div class="text-right">
+                        <span id="jarak-text" class="text-sm font-bold">-- m</span>
+                        <span class="text-xs text-slate-400 block">dari kantor</span>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-slate-500">
+                    <i class="fas fa-map-pin text-red-500 mr-1"></i>
+                    Kantor: -6.1923239, 106.9701343
+                    <span class="ml-2 text-green-500" id="radius-info">Radius: 20m</span>
+                </div>
+            </div>
+
+            <!-- Mini Map -->
+            <div class="mini-map mb-4 relative overflow-hidden">
+                <div class="radius-circle"></div>
+                <div class="dot-center"></div>
+                <div id="user-dot" class="dot-user" style="display:none;"></div>
+                <div class="absolute bottom-2 left-2 text-white text-xs opacity-50">
+                    <span class="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span> Kantor
+                    <span class="inline-block w-2 h-2 bg-blue-500 rounded-full ml-2 mr-1"></span> Anda
+                </div>
+                <div class="absolute top-2 right-2 text-white text-xs bg-black/30 px-2 py-1 rounded">
+                    Radius 20m
+                </div>
+                <div id="status-lokasi" class="absolute bottom-2 right-2 text-xs font-bold px-2 py-1 rounded bg-black/50 text-white">
+                    Mencari lokasi...
+                </div>
+            </div>
+
+            <!-- Kamera -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden mb-4">
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 border-b flex justify-between items-center">
+                    <span class="text-sm font-semibold"><i class="fas fa-camera mr-2"></i>Kamera</span>
+                    <span id="camera-status" class="text-xs text-green-600"><i class="fas fa-circle text-green-500"></i> Aktif</span>
+                </div>
+                <div class="aspect-[4/3] bg-black relative">
+                    <video id="webcam" autoplay playsinline class="w-full h-full object-cover scale-x-[-1]"></video>
+                    <canvas id="canvas" class="hidden"></canvas>
+                    <div class="absolute inset-0 border-2 border-blue-500/30 m-3 rounded-lg pointer-events-none"></div>
+                </div>
+            </div>
+
+            <!-- Tombol Absen -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <button onclick="prosesAbsen('masuk')" 
+                        class="p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg transition transform active:scale-95 font-bold">
+                    <i class="fas fa-sign-in-alt text-2xl block mb-1"></i>
+                    ABSEN MASUK
+                    <span class="block text-xs font-normal text-blue-200">Batas 08:00</span>
+                </button>
+                <button onclick="prosesAbsen('pulang')" 
+                        class="p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg transition transform active:scale-95 font-bold">
+                    <i class="fas fa-sign-out-alt text-2xl block mb-1"></i>
+                    ABSEN PULANG
+                    <span class="block text-xs font-normal text-emerald-200">Mulai 16:00</span>
+                </button>
+            </div>
+
+            <!-- Log Absensi -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                        <i class="fas fa-list-ul mr-2"></i>Log Absensi
+                    </h3>
+                    <span id="log-count" class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-full">0</span>
+                </div>
+                <div id="log-container" class="space-y-3 max-h-96 overflow-y-auto">
+                    <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">
+                        <i class="fas fa-inbox text-2xl block mb-2"></i>
+                        Belum ada data
+                    </p>
+                </div>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- MODALS -->
+        <!-- ========================================== -->
+
+        <!-- Modal Kelola User -->
+        <div id="user-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="font-bold"><i class="fas fa-users mr-2"></i>Kelola User</h3>
+                    <button onclick="closeModal('user-modal')" class="text-slate-500 hover:text-slate-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4 overflow-y-auto max-h-[60vh]">
+                    <form id="add-user-form" class="mb-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-semibold text-sm">Tambah User</h4>
+                        <input type="text" id="new-id" placeholder="ID (contoh: EMP001)" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="new-name" placeholder="Nama Lengkap" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
+                        <input type="password" id="new-password" placeholder="Password" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
+                        <select id="new-role" class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="user">User (Absensi Saja)</option>
+                            <option value="admin">Admin (Full Akses)</option>
+                        </select>
+                        <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
+                            <i class="fas fa-plus mr-1"></i>Tambah User
+                        </button>
+                    </form>
+                    
+                    <div id="user-list" class="space-y-2">
+                        <p class="text-center text-sm text-slate-400 py-2">Memuat...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Pengaturan -->
+        <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold"><i class="fas fa-cog mr-2"></i>Pengaturan</h3>
+                    <button onclick="closeModal('settings-modal')" class="text-slate-500 hover:text-slate-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                        <label class="text-sm font-semibold block">Radius Absensi (meter)</label>
+                        <input type="number" id="setting-radius" class="w-full px-3 py-2 rounded-lg border text-sm" value="20">
+                        <button onclick="updateSetting('radius')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                    </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                        <label class="text-sm font-semibold block">Jam Masuk Maksimal</label>
+                        <input type="time" id="setting-masuk" class="w-full px-3 py-2 rounded-lg border text-sm" value="08:00">
+                        <button onclick="updateSetting('masuk')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                    </div>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                        <label class="text-sm font-semibold block">Jam Pulang Minimal</label>
+                        <input type="time" id="setting-pulang" class="w-full px-3 py-2 rounded-lg border text-sm" value="16:00">
+                        <button onclick="updateSetting('pulang')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                    </div>
+                    <button onclick="resetData()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
+                        <i class="fas fa-trash mr-1"></i>Reset Semua Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- LOADING OVERLAY -->
+    <!-- ========================================== -->
     <div id="loading-overlay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-slate-800 p-6 rounded-xl text-center max-w-xs">
             <div class="loader w-12 h-12 rounded-full border-4 border-gray-200 border-t-blue-600 mx-auto"></div>
@@ -191,63 +349,274 @@
         </div>
     </div>
 
-    <!-- ========== JAVASCRIPT ========== -->
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT -->
+    <!-- ========================================== -->
     <script>
         // ============================================
-        // 1. KONFIGURASI GEOFENCING
+        // 1. DATABASE INDEXEDDB
         // ============================================
-        const CONFIG = {
-            // TITIK KANTOR (sesuai yang Anda berikan)
-            KANTOR_LAT: -6.1923239,
-            KANTOR_LNG: 106.9701343,
-            
-            // RADIUS MAKSIMAL 20 METER
-            RADIUS_MAKSIMAL: 20,
-            
-            JAM_MASUK_MAX: 8,  // 08:00
-            JAM_PULANG_MIN: 16 // 16:00
-        };
+        const DB_NAME = 'AbsensiGeofencingDB';
+        const DB_VERSION = 1;
+        let db = null;
+
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    
+                    if (!database.objectStoreNames.contains('users')) {
+                        const userStore = database.createObjectStore('users', { keyPath: 'id' });
+                        userStore.createIndex('role', 'role');
+                    }
+                    
+                    if (!database.objectStoreNames.contains('absensi')) {
+                        const absensiStore = database.createObjectStore('absensi', { 
+                            keyPath: 'id', 
+                            autoIncrement: true 
+                        });
+                        absensiStore.createIndex('user_id', 'user_id');
+                        absensiStore.createIndex('tanggal', 'tanggal');
+                    }
+                    
+                    if (!database.objectStoreNames.contains('config')) {
+                        database.createObjectStore('config', { keyPath: 'key' });
+                    }
+                };
+            });
+        }
 
         // ============================================
-        // 2. VARIABLES
+        // 2. USER MANAGEMENT
         // ============================================
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        
+        function getUsers() {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['users'], 'readonly');
+                const store = tx.objectStore('users');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function addUser(id, name, password, role) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['users'], 'readwrite');
+                const store = tx.objectStore('users');
+                const request = store.add({ id, name, password, role, created_at: new Date().toISOString() });
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function deleteUser(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['users'], 'readwrite');
+                const store = tx.objectStore('users');
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function findUser(id, password) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['users'], 'readonly');
+                const store = tx.objectStore('users');
+                const request = store.get(id);
+                request.onsuccess = () => {
+                    const user = request.result;
+                    if (user && user.password === password) {
+                        resolve(user);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ============================================
+        // 3. ABSENSI DATA
+        // ============================================
+        function saveAbsensi(data) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['absensi'], 'readwrite');
+                const store = tx.objectStore('absensi');
+                const request = store.add(data);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function getAbsensiByUser(userId) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['absensi'], 'readonly');
+                const store = tx.objectStore('absensi');
+                const index = store.index('user_id');
+                const request = index.getAll(userId);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function getAllAbsensi() {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['absensi'], 'readonly');
+                const store = tx.objectStore('absensi');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function deleteAllAbsensi() {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['absensi'], 'readwrite');
+                const store = tx.objectStore('absensi');
+                const request = store.clear();
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ============================================
+        // 4. CONFIG
+        // ============================================
+        function getConfig() {
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(['config'], 'readonly');
+                    const store = tx.objectStore('config');
+                    const request = store.getAll();
+                    request.onsuccess = () => {
+                        const configs = request.result;
+                        const config = {};
+                        configs.forEach(item => { config[item.key] = item.value; });
+                        resolve(config);
+                    };
+                    request.onerror = () => resolve({});
+                } catch {
+                    resolve({});
+                }
+            });
+        }
+
+        function saveConfig(key, value) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['config'], 'readwrite');
+                const store = tx.objectStore('config');
+                const request = store.put({ key, value });
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ============================================
+        // 5. KONFIGURASI
+        // ============================================
+        const CONFIG = {
+            KANTOR_LAT: -6.1923239,
+            KANTOR_LNG: 106.9701343,
+            RADIUS_MAKSIMAL: 20,
+            JAM_MASUK_MAX: 8,
+            JAM_PULANG_MIN: 16
+        };
+
+        let currentUser = null;
         let currentPosition = null;
         let isProcessing = false;
         let watchId = null;
 
         // ============================================
-        // 3. GEOFENCING - HITUNG JARAK
+        // 6. LOGIN / LOGOUT
         // ============================================
-        function hitungJarak(lat1, lon1, lat2, lon2) {
-            // Haversine Formula
-            const R = 6371e3; // Radius bumi dalam meter
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c; // hasil dalam meter
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            
+            if (!id || !password) {
+                Swal.fire({ icon: 'warning', title: 'Lengkapi Data', text: 'ID dan password harus diisi' });
+                return;
+            }
+            
+            try {
+                const user = await findUser(id, password);
+                if (user) {
+                    currentUser = user;
+                    loginSuccess(user);
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Login Gagal', text: 'ID atau password salah' });
+                }
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Terjadi kesalahan saat login' });
+            }
+        });
+
+        function loginSuccess(user) {
+            document.getElementById('login-page').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            
+            document.getElementById('current-user').textContent = `User: ${user.id} - ${user.name}`;
+            document.getElementById('user-role-display').textContent = user.role === 'admin' ? '👑 Admin' : '👤 User';
+            
+            if (user.role === 'admin') {
+                document.getElementById('admin-panel').classList.remove('hidden');
+            }
+            
+            initCamera();
+            startGPSTracking();
+            loadTodayLog();
+            
+            Swal.fire({
+                icon: 'success',
+                title: `Selamat datang, ${user.name}!`,
+                text: user.role === 'admin' ? 'Anda memiliki akses admin' : 'Silakan absen',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
+        function logout() {
+            Swal.fire({
+                title: 'Logout?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Logout'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    if (watchId) navigator.geolocation.clearWatch(watchId);
+                    if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+                    currentUser = null;
+                    document.getElementById('main-app').classList.add('hidden');
+                    document.getElementById('login-page').classList.remove('hidden');
+                    document.getElementById('login-password').value = '';
+                }
+            });
         }
 
         // ============================================
-        // 4. GPS TRACKING REAL-TIME
+        // 7. GPS TRACKING
         // ============================================
         function startGPSTracking() {
             if (!navigator.geolocation) {
                 document.getElementById('gps-text').textContent = 'GPS tidak didukung';
-                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-gray-500';
                 return;
             }
 
-            document.getElementById('gps-text').textContent = 'Mendapatkan lokasi...';
+            document.getElementById('gps-text').textContent = 'Mencari GPS...';
             document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-yellow-500 gps-pulse';
 
-            // Watch position untuk tracking real-time
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
                     currentPosition = {
@@ -256,81 +625,67 @@
                         accuracy: position.coords.accuracy
                     };
 
-                    // Hitung jarak
                     const jarak = hitungJarak(
-                        CONFIG.KANTOR_LAT,
-                        CONFIG.KANTOR_LNG,
-                        currentPosition.lat,
-                        currentPosition.lng
+                        CONFIG.KANTOR_LAT, CONFIG.KANTOR_LNG,
+                        currentPosition.lat, currentPosition.lng
                     );
                     const jarakDibulatkan = Math.round(jarak);
 
-                    // Update UI
                     updateGPSUI(jarakDibulatkan, position.coords.accuracy);
                     updateMiniMap(jarakDibulatkan);
 
-                    // Cek apakah dalam radius
                     const dalamRadius = jarakDibulatkan <= CONFIG.RADIUS_MAKSIMAL;
                     document.getElementById('status-lokasi').textContent = 
                         dalamRadius ? '✅ Dalam area' : '❌ Di luar area';
                     document.getElementById('status-lokasi').className = 
-                        `text-xs font-bold ${dalamRadius ? 'text-green-500' : 'text-red-500'}`;
-
+                        `absolute bottom-2 right-2 text-xs font-bold px-2 py-1 rounded ${dalamRadius ? 'bg-green-500/70' : 'bg-red-500/70'} text-white`;
                 },
                 (error) => {
-                    console.error('GPS Error:', error);
                     let msg = 'Error GPS';
                     if (error.code === 1) msg = 'Izin lokasi ditolak';
                     else if (error.code === 2) msg = 'Sinyal GPS hilang';
                     else if (error.code === 3) msg = 'Timeout GPS';
-                    
                     document.getElementById('gps-text').textContent = msg;
                     document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500';
                 },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
         }
 
-        function updateGPSUI(jarak, accuracy) {
-            const gpsText = document.getElementById('gps-text');
-            const jarakText = document.getElementById('jarak-text');
-            const gpsStatus = document.getElementById('gps-status');
+        function hitungJarak(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
 
-            jarakText.textContent = `${jarak} m`;
+        function updateGPSUI(jarak, accuracy) {
+            document.getElementById('jarak-text').textContent = `${jarak} m`;
             
             if (jarak <= CONFIG.RADIUS_MAKSIMAL) {
-                gpsText.textContent = '✅ Dalam area absensi';
-                gpsStatus.className = 'w-3 h-3 rounded-full bg-green-500';
+                document.getElementById('gps-text').textContent = '✅ Dalam area absensi';
+                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-green-500';
             } else {
-                gpsText.textContent = `❌ ${jarak}m dari kantor (max ${CONFIG.RADIUS_MAKSIMAL}m)`;
-                gpsStatus.className = 'w-3 h-3 rounded-full bg-red-500 gps-pulse';
+                document.getElementById('gps-text').textContent = `❌ ${jarak}m dari kantor (max ${CONFIG.RADIUS_MAKSIMAL}m)`;
+                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500 gps-pulse';
             }
 
-            // Tampilkan akurasi
-            if (accuracy) {
-                const accText = document.querySelector('.text-xs.text-slate-400');
-                if (accText) {
-                    accText.textContent = `Akurasi GPS: ${Math.round(accuracy)}m`;
-                }
+            const radiusInfo = document.getElementById('radius-info');
+            if (radiusInfo) {
+                radiusInfo.textContent = `Akurasi: ${Math.round(accuracy || 0)}m | Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
             }
         }
 
         function updateMiniMap(jarak) {
             const userDot = document.getElementById('user-dot');
             const container = document.querySelector('.mini-map');
-            
             if (!container) return;
             
-            const rect = container.getBoundingClientRect();
-            const size = Math.min(rect.width, rect.height) * 0.8;
-            
-            // Posisi user dalam container
-            // Semakin besar jarak, semakin ke pinggir
-            const maxJarak = 200; // max visual distance
+            const maxJarak = 200;
             const persen = Math.min(jarak / maxJarak, 0.9);
             
             const x = 50 + (persen * 45 * (Math.random() > 0.5 ? 1 : -1));
@@ -339,18 +694,16 @@
             userDot.style.display = 'block';
             userDot.style.left = `${x}%`;
             userDot.style.top = `${y}%`;
-            
-            // Warna berdasarkan jarak
-            if (jarak <= CONFIG.RADIUS_MAKSIMAL) {
-                userDot.style.background = '#22c55e';
-            } else {
-                userDot.style.background = '#ef4444';
-            }
+            userDot.style.background = jarak <= CONFIG.RADIUS_MAKSIMAL ? '#22c55e' : '#ef4444';
         }
 
         // ============================================
-        // 5. KAMERA
+        // 8. KAMERA
         // ============================================
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
         function initCamera() {
             navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -361,8 +714,7 @@
                 document.getElementById('camera-status').innerHTML = 
                     '<i class="fas fa-circle text-green-500"></i> Aktif';
             })
-            .catch(err => {
-                console.error('Camera error:', err);
+            .catch(() => {
                 document.getElementById('camera-status').innerHTML = 
                     '<i class="fas fa-circle text-red-500"></i> Error';
             });
@@ -379,7 +731,7 @@
         }
 
         // ============================================
-        // 6. CLOCK
+        // 9. CLOCK
         // ============================================
         function updateClock() {
             const now = new Date();
@@ -392,7 +744,7 @@
         updateClock();
 
         // ============================================
-        // 7. PROSES ABSEN DENGAN GEOFENCING
+        // 10. PROSES ABSEN
         // ============================================
         function showLoading(text, subtext) {
             document.getElementById('loading-overlay').classList.remove('hidden');
@@ -404,39 +756,62 @@
             document.getElementById('loading-overlay').classList.add('hidden');
         }
 
+        function cekAbsenGanda(jenis) {
+            const today = new Date().toISOString().split('T')[0];
+            return getAbsensiByUser(currentUser.id).then(data => {
+                const todayData = data.filter(item => 
+                    item.tanggal === today && item.jenis_absen === jenis
+                );
+                return todayData.length === 0;
+            });
+        }
+
         function prosesAbsen(jenis) {
             if (isProcessing) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Proses Berjalan',
-                    text: 'Tunggu hingga selesai',
-                    timer: 1500
-                });
+                Swal.fire({ icon: 'warning', title: 'Proses Berjalan', text: 'Tunggu hingga selesai', timer: 1500 });
                 return;
             }
 
-            // CEK: Apakah GPS sudah dapat lokasi?
+            if (!currentUser) {
+                Swal.fire({ icon: 'error', title: 'Silakan Login', text: 'Anda harus login terlebih dahulu' });
+                return;
+            }
+
             if (!currentPosition) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'GPS Belum Aktif',
-                    text: 'Tunggu hingga GPS mendapatkan lokasi Anda',
-                    confirmButtonColor: '#d33'
-                });
+                Swal.fire({ icon: 'error', title: 'GPS Belum Aktif', text: 'Tunggu hingga GPS mendapatkan lokasi Anda' });
                 return;
             }
 
-            // CEK: Jarak dari kantor
+            // Cek absen ganda
+            showLoading('Memeriksa status...', 'Cek absensi hari ini');
+            cekAbsenGanda(jenis).then(allowed => {
+                if (!allowed) {
+                    hideLoading();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sudah Absen',
+                        text: `Anda sudah melakukan absen ${jenis === 'masuk' ? 'masuk' : 'pulang'} hari ini`
+                    });
+                    return;
+                }
+                // Lanjutkan ke geofencing
+                checkGeofencing(jenis);
+            }).catch(() => {
+                // Jika error, lanjutkan
+                checkGeofencing(jenis);
+            });
+        }
+
+        function checkGeofencing(jenis) {
             const jarak = hitungJarak(
-                CONFIG.KANTOR_LAT,
-                CONFIG.KANTOR_LNG,
-                currentPosition.lat,
-                currentPosition.lng
+                CONFIG.KANTOR_LAT, CONFIG.KANTOR_LNG,
+                currentPosition.lat, currentPosition.lng
             );
             const jarakDibulatkan = Math.round(jarak);
 
-            // VALIDASI GEOFENCING - HARUS <= 20 METER
+            // GEOFENCING: HARUS <= 20 METER
             if (jarakDibulatkan > CONFIG.RADIUS_MAKSIMAL) {
+                hideLoading();
                 Swal.fire({
                     icon: 'error',
                     title: '🚫 DI LUAR AREA ABSENSI',
@@ -448,49 +823,33 @@
                             <p class="text-xs text-slate-400 mt-1">Titik kantor: -6.1923239, 106.9701343</p>
                         </div>
                     `,
-                    confirmButtonColor: '#d33',
-                    confirmButtonText: 'OK, Saya Paham'
+                    confirmButtonColor: '#d33'
                 });
                 return;
             }
 
-            // CEK: Akurasi GPS (opsional)
-            if (currentPosition.accuracy && currentPosition.accuracy > 50) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Sinyal GPS Lemah',
-                    text: `Akurasi GPS hanya ${Math.round(currentPosition.accuracy)} meter. Pastikan di area terbuka.`,
-                    confirmButtonColor: '#f39c12'
-                });
-                // Tetap lanjutkan, tapi beri warning
-            }
-
-            // CEK: Jam absen
+            // Cek jam
             const now = new Date();
             const hour = now.getHours();
             const minute = now.getMinutes();
 
             if (jenis === 'masuk') {
                 if (hour > CONFIG.JAM_MASUK_MAX || (hour === CONFIG.JAM_MASUK_MAX && minute > 0)) {
-                    // Terlambat, tetap boleh absen
                     lanjutkanAbsen(jenis, jarakDibulatkan, 'Terlambat');
-                    return;
                 } else {
                     lanjutkanAbsen(jenis, jarakDibulatkan, 'Tepat Waktu');
-                    return;
                 }
             } else if (jenis === 'pulang') {
                 if (hour < CONFIG.JAM_PULANG_MIN) {
+                    hideLoading();
                     Swal.fire({
                         icon: 'error',
                         title: 'Belum Waktunya Pulang',
-                        text: `Jam pulang dimulai pukul ${CONFIG.JAM_PULANG_MIN}:00`,
-                        confirmButtonColor: '#d33'
+                        text: `Jam pulang dimulai pukul ${CONFIG.JAM_PULANG_MIN}:00`
                     });
                     return;
                 } else {
                     lanjutkanAbsen(jenis, jarakDibulatkan, 'Sesuai Jadwal');
-                    return;
                 }
             }
         }
@@ -503,57 +862,68 @@
                 try {
                     const foto = ambilFoto();
                     const now = new Date();
-                    const waktu = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const waktu = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     const tanggal = now.toISOString().split('T')[0];
 
                     const data = {
-                        jenis: jenis,
+                        user_id: currentUser.id,
+                        user_name: currentUser.name,
+                        jenis_absen: jenis,
                         waktu: waktu,
                         tanggal: tanggal,
                         status: status,
                         jarak: jarak,
                         foto: foto,
                         lat: currentPosition.lat,
-                        lng: currentPosition.lng
+                        lng: currentPosition.lng,
+                        timestamp: now.toISOString()
                     };
 
-                    hideLoading();
-                    isProcessing = false;
+                    // Simpan ke database
+                    saveAbsensi(data).then(() => {
+                        hideLoading();
+                        isProcessing = false;
 
-                    // Tampilkan sukses
-                    const isLate = status === 'Terlambat';
-                    Swal.fire({
-                        icon: isLate ? 'warning' : 'success',
-                        title: `✅ Absen ${jenis.toUpperCase()} Berhasil!`,
-                        html: `
-                            <div class="text-left">
-                                <p><i class="fas fa-clock text-blue-500 w-6"></i> ${waktu} WIB</p>
-                                <p><i class="fas fa-map-marker-alt text-red-500 w-6"></i> ${jarak} meter dari kantor</p>
-                                <p><i class="fas fa-check-circle text-green-500 w-6"></i> Status: <b>${status}</b></p>
-                                <p><i class="fas fa-crosshairs text-purple-500 w-6"></i> Akurasi GPS: ${Math.round(currentPosition.accuracy)}m</p>
-                            </div>
-                        `,
-                        confirmButtonColor: '#3085d6'
+                        const isLate = status === 'Terlambat';
+                        Swal.fire({
+                            icon: isLate ? 'warning' : 'success',
+                            title: `✅ Absen ${jenis.toUpperCase()} Berhasil!`,
+                            html: `
+                                <div class="text-left">
+                                    <p><i class="fas fa-user text-blue-500 w-6"></i> ${currentUser.id} - ${currentUser.name}</p>
+                                    <p><i class="fas fa-clock text-blue-500 w-6"></i> ${waktu} WIB</p>
+                                    <p><i class="fas fa-map-marker-alt text-red-500 w-6"></i> ${jarak} meter dari kantor</p>
+                                    <p><i class="fas fa-check-circle text-green-500 w-6"></i> Status: <b>${status}</b></p>
+                                </div>
+                            `,
+                            confirmButtonColor: '#3085d6'
+                        });
+
+                        tambahkanKeLog(data);
+                        loadTodayLog();
+
+                    }).catch(error => {
+                        console.error('Save error:', error);
+                        hideLoading();
+                        isProcessing = false;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal Menyimpan',
+                            text: 'Terjadi kesalahan saat menyimpan data'
+                        });
                     });
-
-                    // Tambahkan ke log
-                    tambahkanKeLog(data);
 
                 } catch (error) {
+                    console.error('Error:', error);
                     hideLoading();
                     isProcessing = false;
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal',
-                        text: 'Terjadi kesalahan, coba lagi',
-                        confirmButtonColor: '#d33'
-                    });
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan, coba lagi' });
                 }
             }, 1000);
         }
 
         // ============================================
-        // 8. LOG
+        // 11. LOG
         // ============================================
         function tambahkanKeLog(data) {
             const container = document.getElementById('log-container');
@@ -561,7 +931,7 @@
             if (empty) empty.style.display = 'none';
 
             const card = document.createElement('div');
-            card.className = 'bg-white dark:bg-slate-800 p-3 rounded-xl shadow border border-slate-100 dark:border-slate-700 flex items-center gap-3';
+            card.className = 'bg-white dark:bg-slate-800 p-3 rounded-xl shadow border flex items-center gap-3 fade-in';
             
             const statusClass = data.status === 'Terlambat' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
                                data.status === 'Tepat Waktu' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
@@ -570,7 +940,7 @@
             card.innerHTML = `
                 <img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border">
                 <div class="flex-1">
-                    <p class="font-bold text-sm capitalize">Absen ${data.jenis}</p>
+                    <p class="font-bold text-sm capitalize">${data.user_id} - Absen ${data.jenis_absen}</p>
                     <p class="text-xs text-slate-500">${data.waktu} WIB • ${data.jarak}m dari kantor</p>
                 </div>
                 <div class="px-2 py-1 rounded text-xs font-bold ${statusClass}">
@@ -578,20 +948,231 @@
                 </div>
             `;
             container.insertBefore(card, container.firstChild);
+            updateLogCount();
+        }
+
+        function updateLogCount() {
+            const items = document.querySelectorAll('#log-container > div');
+            document.getElementById('log-count').textContent = items.length;
+        }
+
+        async function loadTodayLog() {
+            try {
+                const data = await getAbsensiByUser(currentUser.id);
+                const today = new Date().toISOString().split('T')[0];
+                const todayData = data.filter(item => item.tanggal === today);
+                
+                const container = document.getElementById('log-container');
+                container.innerHTML = '';
+                
+                if (todayData.length === 0) {
+                    container.innerHTML = `
+                        <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">
+                            <i class="fas fa-inbox text-2xl block mb-2"></i>
+                            Belum ada data
+                        </p>
+                    `;
+                    document.getElementById('log-count').textContent = '0';
+                    return;
+                }
+                
+                todayData.sort((a, b) => b.id - a.id);
+                todayData.forEach(item => tambahkanKeLog(item));
+            } catch (error) {
+                console.error('Error loading log:', error);
+            }
         }
 
         // ============================================
-        // 9. INIT
+        // 12. ADMIN FUNCTIONS
         // ============================================
-        function init() {
-            initCamera();
-            startGPSTracking();
+        async function showManageUsers() {
+            document.getElementById('user-modal').classList.remove('hidden');
+            await loadUserList();
+        }
+
+        async function loadUserList() {
+            const list = document.getElementById('user-list');
+            try {
+                const users = await getUsers();
+                if (users.length === 0) {
+                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">Belum ada user</p>';
+                    return;
+                }
+                
+                let html = '';
+                users.forEach(user => {
+                    const isAdmin = user.role === 'admin';
+                    const isDefault = user.id === 'admin';
+                    html += `
+                        <div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                            <div>
+                                <span class="font-medium text-sm">${user.id}</span>
+                                <span class="text-xs text-slate-500 ml-1">${user.name}</span>
+                                <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'} ml-1">
+                                    ${isAdmin ? '👑' : '👤'}
+                                </span>
+                            </div>
+                            ${!isDefault ? `
+                                <button onclick="deleteUserAccount('${user.id}')" 
+                                        class="text-red-500 hover:text-red-700 text-sm">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : `
+                                <span class="text-xs text-slate-400">Default</span>
+                            `}
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+            } catch (error) {
+                list.innerHTML = '<p class="text-center text-sm text-red-500">Gagal memuat</p>';
+            }
+        }
+
+        document.getElementById('add-user-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            // Log info
-            console.log('📍 SISTEM ABSENSI GEOFENCING');
-            console.log(`📍 Titik Kantor: ${CONFIG.KANTOR_LAT}, ${CONFIG.KANTOR_LNG}`);
-            console.log(`📍 Radius Maksimal: ${CONFIG.RADIUS_MAKSIMAL} meter`);
-            console.log('✅ Sistem siap digunakan');
+            const id = document.getElementById('new-id').value.trim();
+            const name = document.getElementById('new-name').value.trim();
+            const password = document.getElementById('new-password').value.trim();
+            const role = document.getElementById('new-role').value;
+            
+            if (!id || !name || !password) {
+                Swal.fire({ icon: 'warning', title: 'Lengkapi Data', text: 'Semua field harus diisi' });
+                return;
+            }
+            
+            try {
+                const users = await getUsers();
+                if (users.some(u => u.id === id)) {
+                    Swal.fire({ icon: 'error', title: 'ID Sudah Ada', text: 'Gunakan ID lain' });
+                    return;
+                }
+                
+                await addUser(id, name, password, role);
+                document.getElementById('new-id').value = '';
+                document.getElementById('new-name').value = '';
+                document.getElementById('new-password').value = '';
+                
+                Swal.fire({ icon: 'success', title: 'User Ditambahkan', text: `User ${id} - ${name} dibuat` });
+                await loadUserList();
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
+            }
+        });
+
+        async function deleteUserAccount(id) {
+            const result = await Swal.fire({
+                title: 'Hapus User?',
+                text: `Hapus user "${id}"?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Hapus'
+            });
+            
+            if (result.isConfirmed) {
+                try {
+                    await deleteUser(id);
+                    Swal.fire({ icon: 'success', title: 'User Dihapus' });
+                    await loadUserList();
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Gagal' });
+                }
+            }
+        }
+
+        function showSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
+            document.getElementById('setting-masuk').value = `${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
+            document.getElementById('setting-pulang').value = `${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+        }
+
+        function updateSetting(type) {
+            if (type === 'radius') {
+                const value = parseInt(document.getElementById('setting-radius').value);
+                if (value > 0) {
+                    CONFIG.RADIUS_MAKSIMAL = value;
+                    saveConfig('radius', value);
+                    document.getElementById('radius-info').textContent = `Radius: ${value}m`;
+                    Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter`, timer: 1500 });
+                }
+            } else if (type === 'masuk') {
+                const value = document.getElementById('setting-masuk').value;
+                const hour = parseInt(value.split(':')[0]);
+                CONFIG.JAM_MASUK_MAX = hour;
+                saveConfig('jam_masuk', value);
+                Swal.fire({ icon: 'success', title: 'Jam Masuk Diperbarui', text: value, timer: 1500 });
+            } else if (type === 'pulang') {
+                const value = document.getElementById('setting-pulang').value;
+                const hour = parseInt(value.split(':')[0]);
+                CONFIG.JAM_PULANG_MIN = hour;
+                saveConfig('jam_pulang', value);
+                Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: value, timer: 1500 });
+            }
+        }
+
+        async function resetData() {
+            const result = await Swal.fire({
+                title: '⚠️ Reset Semua Data',
+                text: 'Hapus semua data absensi?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Reset'
+            });
+            
+            if (result.isConfirmed) {
+                try {
+                    await deleteAllAbsensi();
+                    await loadTodayLog();
+                    Swal.fire({ icon: 'success', title: 'Data Direset' });
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Gagal' });
+                }
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // ============================================
+        // 13. INIT
+        // ============================================
+        async function init() {
+            try {
+                await initDatabase();
+                
+                // Cek default admin
+                const users = await getUsers();
+                const adminExists = users.some(u => u.id === 'admin');
+                if (!adminExists) {
+                    await addUser('admin', 'Administrator', 'admin123', 'admin');
+                    console.log('✅ Default admin created: admin / admin123');
+                }
+                
+                // Load config
+                const config = await getConfig();
+                if (config.radius) CONFIG.RADIUS_MAKSIMAL = parseInt(config.radius);
+                if (config.jam_masuk) {
+                    const hour = parseInt(config.jam_masuk.split(':')[0]);
+                    CONFIG.JAM_MASUK_MAX = hour;
+                }
+                if (config.jam_pulang) {
+                    const hour = parseInt(config.jam_pulang.split(':')[0]);
+                    CONFIG.JAM_PULANG_MIN = hour;
+                }
+                
+                console.log('📍 SISTEM ABSENSI GEOFENCING');
+                console.log(`📍 Kantor: ${CONFIG.KANTOR_LAT}, ${CONFIG.KANTOR_LNG}`);
+                console.log(`📍 Radius: ${CONFIG.RADIUS_MAKSIMAL}m`);
+                console.log('✅ Sistem siap');
+            } catch (error) {
+                console.error('Init error:', error);
+            }
         }
 
         // Cleanup
@@ -603,11 +1184,10 @@
         init();
 
         // ============================================
-        // 10. TESTING TOOLS (Opsional)
+        // 14. TESTING (console)
         // ============================================
-        // Untuk testing, bisa gunakan console:
-        // - Lihat posisi saat ini: console.log(currentPosition)
-        // - Simulasi jarak: hitungJarak(-6.1923239, 106.9701343, lat, lng)
+        console.log('📌 Default Admin: admin / admin123');
+        console.log('📌 Contoh User: (buat dari admin panel)');
     </script>
 </body>
 </html>
