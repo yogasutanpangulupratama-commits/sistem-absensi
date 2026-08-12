@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS untuk export Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         
@@ -27,7 +29,6 @@
             50% { opacity: 0.5; transform: scale(0.8); }
         }
 
-        /* Login Page */
         .login-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -38,11 +39,7 @@
             border-radius: 20px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
-        .glass-dark {
-            background: rgba(30,41,59,0.95);
-        }
 
-        /* Mini Map */
         .mini-map {
             background: #1a1a2e;
             border-radius: 12px;
@@ -84,9 +81,33 @@
             height: 80%;
         }
 
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         @media (prefers-color-scheme: dark) {
             .glass { background: rgba(30,41,59,0.95); }
             body { background: #0f172a; }
+        }
+
+        /* Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
     </style>
 </head>
@@ -139,14 +160,14 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- MAIN APP (Hidden) -->
+    <!-- MAIN APP -->
     <!-- ========================================== -->
     <div id="main-app" class="hidden min-h-screen bg-slate-100 dark:bg-slate-900">
         
         <!-- Header -->
         <header class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-4 shadow-lg sticky top-0 z-10">
-            <div class="max-w-md mx-auto">
-                <div class="flex justify-between items-center">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex flex-wrap justify-between items-center">
                     <div>
                         <h1 class="text-xl font-bold">📍 Absensi Geofencing</h1>
                         <p class="text-xs text-blue-200" id="user-role-display">👤 User</p>
@@ -156,27 +177,37 @@
                         <p id="current-date" class="text-xs text-blue-200"></p>
                     </div>
                 </div>
-                <div class="flex justify-between items-center mt-2 text-xs">
+                <div class="flex flex-wrap justify-between items-center mt-2 text-xs gap-2">
                     <span class="text-blue-200" id="current-user">User: -</span>
-                    <button onclick="logout()" class="bg-red-500/30 hover:bg-red-500/50 px-3 py-1 rounded-full transition">
-                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="logout()" class="bg-red-500/30 hover:bg-red-500/50 px-3 py-1 rounded-full transition">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="max-w-md mx-auto p-4 pb-20">
+        <main class="max-w-4xl mx-auto p-4 pb-20">
             
             <!-- Admin Panel -->
             <div id="admin-panel" class="hidden mb-4">
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
                     <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
                 </div>
-                <div class="grid grid-cols-2 gap-2 mt-2">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                     <button onclick="showManageUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-users text-blue-600 text-xl block mb-1"></i>
                         Kelola User
+                    </button>
+                    <button onclick="showAllAbsensi()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                        <i class="fas fa-database text-green-600 text-xl block mb-1"></i>
+                        Semua Absensi
+                    </button>
+                    <button onclick="exportToExcel()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+                        <i class="fas fa-file-excel text-emerald-600 text-xl block mb-1"></i>
+                        Export Excel
                     </button>
                     <button onclick="showSettings()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-cog text-purple-600 text-xl block mb-1"></i>
@@ -187,7 +218,7 @@
 
             <!-- Status GPS -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-4">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-wrap justify-between items-center gap-2">
                     <div class="flex items-center gap-2">
                         <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500 gps-pulse"></span>
                         <span id="gps-text" class="text-sm font-medium">Mencari GPS...</span>
@@ -197,10 +228,9 @@
                         <span class="text-xs text-slate-400 block">dari kantor</span>
                     </div>
                 </div>
-                <div class="mt-2 text-xs text-slate-500">
-                    <i class="fas fa-map-pin text-red-500 mr-1"></i>
-                    Kantor: -6.1923239, 106.9701343
-                    <span class="ml-2 text-green-500" id="radius-info">Radius: 20m</span>
+                <div class="mt-2 text-xs text-slate-500 flex flex-wrap gap-2">
+                    <span><i class="fas fa-map-pin text-red-500 mr-1"></i>Kantor: -6.1923239, 106.9701343</span>
+                    <span class="text-green-500" id="radius-info">Radius: 20m</span>
                 </div>
             </div>
 
@@ -240,25 +270,41 @@
                         class="p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg transition transform active:scale-95 font-bold">
                     <i class="fas fa-sign-in-alt text-2xl block mb-1"></i>
                     ABSEN MASUK
-                    <span class="block text-xs font-normal text-blue-200">Batas 08:00</span>
+                    <span class="block text-xs font-normal text-blue-200" id="jam-masuk-display">Batas 08:00</span>
                 </button>
                 <button onclick="prosesAbsen('pulang')" 
                         class="p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg transition transform active:scale-95 font-bold">
                     <i class="fas fa-sign-out-alt text-2xl block mb-1"></i>
                     ABSEN PULANG
-                    <span class="block text-xs font-normal text-emerald-200">Mulai 16:00</span>
+                    <span class="block text-xs font-normal text-emerald-200" id="jam-pulang-display">Mulai 16:00</span>
                 </button>
             </div>
 
-            <!-- Log Absensi -->
+            <!-- Filter & Search (User) -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-3 mb-4">
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex-1 min-w-[150px]">
+                        <input type="date" id="user-filter-date" 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                    </div>
+                    <button onclick="filterUserLog()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">
+                        <i class="fas fa-search mr-1"></i>Filter
+                    </button>
+                    <button onclick="resetUserFilter()" class="px-4 py-2 bg-slate-500 text-white rounded-lg text-sm font-bold hover:bg-slate-600">
+                        <i class="fas fa-undo mr-1"></i>Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Log Absensi User -->
             <div>
                 <div class="flex justify-between items-center mb-3">
                     <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">
-                        <i class="fas fa-list-ul mr-2"></i>Log Absensi
+                        <i class="fas fa-list-ul mr-2"></i>Riwayat Absensi Saya
                     </h3>
                     <span id="log-count" class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-full">0</span>
                 </div>
-                <div id="log-container" class="space-y-3 max-h-96 overflow-y-auto">
+                <div id="log-container" class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll">
                     <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">
                         <i class="fas fa-inbox text-2xl block mb-2"></i>
                         Belum ada data
@@ -273,35 +319,128 @@
 
         <!-- Modal Kelola User -->
         <div id="user-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center">
                     <h3 class="font-bold"><i class="fas fa-users mr-2"></i>Kelola User</h3>
                     <button onclick="closeModal('user-modal')" class="text-slate-500 hover:text-slate-700">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="p-4 overflow-y-auto max-h-[60vh]">
+                <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
+                    <!-- Form Tambah User -->
                     <form id="add-user-form" class="mb-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-xl space-y-2">
-                        <h4 class="font-semibold text-sm">Tambah User</h4>
-                        <input type="text" id="new-id" placeholder="ID (contoh: EMP001)" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
-                        <input type="text" id="new-name" placeholder="Nama Lengkap" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
-                        <input type="password" id="new-password" placeholder="Password" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
-                        <select id="new-role" class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500">
-                            <option value="user">User (Absensi Saja)</option>
-                            <option value="admin">Admin (Full Akses)</option>
-                        </select>
+                        <h4 class="font-semibold text-sm"><i class="fas fa-user-plus mr-2"></i>Tambah User Baru</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <input type="text" id="new-id" placeholder="ID (contoh: EMP001)" 
+                                   class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600" required>
+                            <input type="text" id="new-name" placeholder="Nama Lengkap" 
+                                   class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600" required>
+                            <input type="password" id="new-password" placeholder="Password" 
+                                   class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600" required>
+                            <select id="new-role" class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600">
+                                <option value="user">User (Absensi Saja)</option>
+                                <option value="admin">Admin (Full Akses)</option>
+                            </select>
+                        </div>
                         <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
                             <i class="fas fa-plus mr-1"></i>Tambah User
                         </button>
                     </form>
                     
+                    <!-- Search User -->
+                    <div class="mb-3">
+                        <input type="text" id="search-user" placeholder="Cari user..." 
+                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
+                               oninput="filterUserList()">
+                    </div>
+                    
+                    <!-- Daftar User -->
                     <div id="user-list" class="space-y-2">
                         <p class="text-center text-sm text-slate-400 py-2">Memuat...</p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Modal Semua Absensi (Admin) -->
+        <div id="all-absensi-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="font-bold"><i class="fas fa-database mr-2"></i>Semua Data Absensi</h3>
+                    <button onclick="closeModal('all-absensi-modal')" class="text-slate-500 hover:text-slate-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
+                    <!-- Filter Admin -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <input type="text" id="admin-search-user" placeholder="Cari ID/Nama..." 
+                               class="flex-1 min-w-[120px] px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                               oninput="filterAdminAbsensi()">
+                        <input type="date" id="admin-filter-date" 
+                               class="px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                               onchange="filterAdminAbsensi()">
+                        <select id="admin-filter-status" class="px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                                onchange="filterAdminAbsensi()">
+                            <option value="">Semua Status</option>
+                            <option value="Tepat Waktu">Tepat Waktu</option>
+                            <option value="Terlambat">Terlambat</option>
+                            <option value="Sesuai Jadwal">Sesuai Jadwal</option>
+                        </select>
+                        <button onclick="resetAdminFilter()" class="px-4 py-2 bg-slate-500 text-white rounded-lg text-sm font-bold hover:bg-slate-600">
+                            <i class="fas fa-undo mr-1"></i>Reset
+                        </button>
+                    </div>
+                    
+                    <!-- Tabel Data -->
+                    <div id="all-absensi-container" class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-100 dark:bg-slate-700">
+                                <tr>
+                                    <th class="p-2 text-left">No</th>
+                                    <th class="p-2 text-left">ID</th>
+                                    <th class="p-2 text-left">Nama</th>
+                                    <th class="p-2 text-left">Tanggal</th>
+                                    <th class="p-2 text-left">Jam</th>
+                                    <th class="p-2 text-left">Jenis</th>
+                                    <th class="p-2 text-left">Status</th>
+                                    <th class="p-2 text-left">Jarak</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-absensi-body">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-slate-400">Belum ada data</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2 text-xs text-slate-400">
+                        Total: <span id="admin-total-count">0</span> data
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Reset Password -->
+        <div id="reset-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
+                <h3 class="font-bold text-lg mb-4"><i class="fas fa-key mr-2"></i>Reset Password</h3>
+                <p class="text-sm text-slate-500 mb-4" id="reset-user-info">User: -</p>
+                <form id="reset-password-form">
+                    <input type="password" id="reset-new-password" placeholder="Password Baru" 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600 mb-3" required>
+                    <input type="password" id="reset-confirm-password" placeholder="Konfirmasi Password" 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600 mb-3" required>
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
+                            <i class="fas fa-save mr-1"></i>Simpan
+                        </button>
+                        <button type="button" onclick="closeModal('reset-password-modal')" 
+                                class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
+                            Batal
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -330,7 +469,7 @@
                         <input type="time" id="setting-pulang" class="w-full px-3 py-2 rounded-lg border text-sm" value="16:00">
                         <button onclick="updateSetting('pulang')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
                     </div>
-                    <button onclick="resetData()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
+                    <button onclick="resetAllData()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
                         <i class="fas fa-trash mr-1"></i>Reset Semua Data
                     </button>
                 </div>
@@ -357,7 +496,7 @@
         // 1. DATABASE INDEXEDDB
         // ============================================
         const DB_NAME = 'AbsensiGeofencingDB';
-        const DB_VERSION = 1;
+        const DB_VERSION = 2;
         let db = null;
 
         function initDatabase() {
@@ -374,6 +513,7 @@
                     if (!database.objectStoreNames.contains('users')) {
                         const userStore = database.createObjectStore('users', { keyPath: 'id' });
                         userStore.createIndex('role', 'role');
+                        userStore.createIndex('name', 'name');
                     }
                     
                     if (!database.objectStoreNames.contains('absensi')) {
@@ -383,6 +523,8 @@
                         });
                         absensiStore.createIndex('user_id', 'user_id');
                         absensiStore.createIndex('tanggal', 'tanggal');
+                        absensiStore.createIndex('jenis_absen', 'jenis_absen');
+                        absensiStore.createIndex('status', 'status');
                     }
                     
                     if (!database.objectStoreNames.contains('config')) {
@@ -415,6 +557,16 @@
             });
         }
 
+        function updateUser(id, data) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['users'], 'readwrite');
+                const store = tx.objectStore('users');
+                const request = store.put({ ...data, id });
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
         function deleteUser(id) {
             return new Promise((resolve, reject) => {
                 const tx = db.transaction(['users'], 'readwrite');
@@ -438,6 +590,16 @@
                         resolve(null);
                     }
                 };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function getUserById(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['users'], 'readonly');
+                const store = tx.objectStore('users');
+                const request = store.get(id);
+                request.onsuccess = () => resolve(request.result);
                 request.onerror = () => reject(request.error);
             });
         }
@@ -533,6 +695,8 @@
         let currentPosition = null;
         let isProcessing = false;
         let watchId = null;
+        let allAbsensiData = [];
+        let filteredAbsensiData = [];
 
         // ============================================
         // 6. LOGIN / LOGOUT
@@ -568,18 +732,26 @@
             document.getElementById('current-user').textContent = `User: ${user.id} - ${user.name}`;
             document.getElementById('user-role-display').textContent = user.role === 'admin' ? '👑 Admin' : '👤 User';
             
+            // Update jam display
+            document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
+            document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+            
             if (user.role === 'admin') {
                 document.getElementById('admin-panel').classList.remove('hidden');
             }
             
+            // Set default date filter
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('user-filter-date').value = today;
+            
             initCamera();
             startGPSTracking();
-            loadTodayLog();
+            loadUserLog();
             
             Swal.fire({
                 icon: 'success',
                 title: `Selamat datang, ${user.name}!`,
-                text: user.role === 'admin' ? 'Anda memiliki akses admin' : 'Silakan absen',
+                text: user.role === 'admin' ? 'Anda memiliki akses admin penuh' : 'Silakan absen',
                 timer: 1500,
                 showConfirmButton: false
             });
@@ -674,10 +846,7 @@
                 document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500 gps-pulse';
             }
 
-            const radiusInfo = document.getElementById('radius-info');
-            if (radiusInfo) {
-                radiusInfo.textContent = `Akurasi: ${Math.round(accuracy || 0)}m | Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
-            }
+            document.getElementById('radius-info').textContent = `Akurasi: ${Math.round(accuracy || 0)}m | Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
         }
 
         function updateMiniMap(jarak) {
@@ -782,7 +951,6 @@
                 return;
             }
 
-            // Cek absen ganda
             showLoading('Memeriksa status...', 'Cek absensi hari ini');
             cekAbsenGanda(jenis).then(allowed => {
                 if (!allowed) {
@@ -794,10 +962,8 @@
                     });
                     return;
                 }
-                // Lanjutkan ke geofencing
                 checkGeofencing(jenis);
             }).catch(() => {
-                // Jika error, lanjutkan
                 checkGeofencing(jenis);
             });
         }
@@ -809,7 +975,6 @@
             );
             const jarakDibulatkan = Math.round(jarak);
 
-            // GEOFENCING: HARUS <= 20 METER
             if (jarakDibulatkan > CONFIG.RADIUS_MAKSIMAL) {
                 hideLoading();
                 Swal.fire({
@@ -828,7 +993,6 @@
                 return;
             }
 
-            // Cek jam
             const now = new Date();
             const hour = now.getHours();
             const minute = now.getMinutes();
@@ -845,7 +1009,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Belum Waktunya Pulang',
-                        text: `Jam pulang dimulai pukul ${CONFIG.JAM_PULANG_MIN}:00`
+                        text: `Jam pulang dimulai pukul ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`
                     });
                     return;
                 } else {
@@ -879,7 +1043,6 @@
                         timestamp: now.toISOString()
                     };
 
-                    // Simpan ke database
                     saveAbsensi(data).then(() => {
                         hideLoading();
                         isProcessing = false;
@@ -899,18 +1062,13 @@
                             confirmButtonColor: '#3085d6'
                         });
 
-                        tambahkanKeLog(data);
-                        loadTodayLog();
+                        loadUserLog();
 
                     }).catch(error => {
                         console.error('Save error:', error);
                         hideLoading();
                         isProcessing = false;
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal Menyimpan',
-                            text: 'Terjadi kesalahan saat menyimpan data'
-                        });
+                        Swal.fire({ icon: 'error', title: 'Gagal Menyimpan', text: 'Terjadi kesalahan' });
                     });
 
                 } catch (error) {
@@ -923,7 +1081,7 @@
         }
 
         // ============================================
-        // 11. LOG
+        // 11. USER LOG - DENGAN FILTER TANGGAL
         // ============================================
         function tambahkanKeLog(data) {
             const container = document.getElementById('log-container');
@@ -938,56 +1096,77 @@
                                'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400';
 
             card.innerHTML = `
-                <img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border">
-                <div class="flex-1">
-                    <p class="font-bold text-sm capitalize">${data.user_id} - Absen ${data.jenis_absen}</p>
-                    <p class="text-xs text-slate-500">${data.waktu} WIB • ${data.jarak}m dari kantor</p>
+                <img src="${data.foto}" class="w-12 h-12 rounded-lg object-cover border flex-shrink-0">
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-sm capitalize truncate">${data.user_id} - Absen ${data.jenis_absen}</p>
+                    <p class="text-xs text-slate-500">${data.tanggal} • ${data.waktu} WIB • ${data.jarak}m dari kantor</p>
                 </div>
-                <div class="px-2 py-1 rounded text-xs font-bold ${statusClass}">
+                <div class="px-2 py-1 rounded text-xs font-bold ${statusClass} whitespace-nowrap">
                     ${data.status}
                 </div>
             `;
-            container.insertBefore(card, container.firstChild);
+            container.appendChild(card);
             updateLogCount();
         }
 
         function updateLogCount() {
-            const items = document.querySelectorAll('#log-container > div');
+            const items = document.querySelectorAll('#log-container > div:not(#empty-log)');
             document.getElementById('log-count').textContent = items.length;
         }
 
-        async function loadTodayLog() {
+        async function loadUserLog() {
             try {
                 const data = await getAbsensiByUser(currentUser.id);
-                const today = new Date().toISOString().split('T')[0];
-                const todayData = data.filter(item => item.tanggal === today);
+                const filterDate = document.getElementById('user-filter-date').value;
+                
+                let filteredData = data;
+                if (filterDate) {
+                    filteredData = data.filter(item => item.tanggal === filterDate);
+                }
+                
+                // Sort descending
+                filteredData.sort((a, b) => {
+                    if (a.tanggal !== b.tanggal) return b.tanggal.localeCompare(a.tanggal);
+                    return b.id - a.id;
+                });
                 
                 const container = document.getElementById('log-container');
                 container.innerHTML = '';
                 
-                if (todayData.length === 0) {
+                if (filteredData.length === 0) {
                     container.innerHTML = `
                         <p class="text-center text-sm text-slate-400 py-4 italic" id="empty-log">
                             <i class="fas fa-inbox text-2xl block mb-2"></i>
-                            Belum ada data
+                            ${filterDate ? `Tidak ada data untuk tanggal ${filterDate}` : 'Belum ada data'}
                         </p>
                     `;
                     document.getElementById('log-count').textContent = '0';
                     return;
                 }
                 
-                todayData.sort((a, b) => b.id - a.id);
-                todayData.forEach(item => tambahkanKeLog(item));
+                filteredData.forEach(item => tambahkanKeLog(item));
             } catch (error) {
                 console.error('Error loading log:', error);
             }
         }
 
+        function filterUserLog() {
+            loadUserLog();
+        }
+
+        function resetUserFilter() {
+            document.getElementById('user-filter-date').value = '';
+            loadUserLog();
+        }
+
         // ============================================
-        // 12. ADMIN FUNCTIONS
+        // 12. ADMIN - KELOLA USER
         // ============================================
+        let resetTargetUser = null;
+
         async function showManageUsers() {
             document.getElementById('user-modal').classList.remove('hidden');
+            document.getElementById('search-user').value = '';
             await loadUserList();
         }
 
@@ -1000,27 +1179,45 @@
                     return;
                 }
                 
+                // Filter
+                const search = document.getElementById('search-user')?.value.toLowerCase() || '';
+                const filtered = users.filter(u => 
+                    u.id.toLowerCase().includes(search) || 
+                    u.name.toLowerCase().includes(search)
+                );
+                
+                if (filtered.length === 0) {
+                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">User tidak ditemukan</p>';
+                    return;
+                }
+                
                 let html = '';
-                users.forEach(user => {
+                filtered.forEach(user => {
                     const isAdmin = user.role === 'admin';
                     const isDefault = user.id === 'admin';
                     html += `
-                        <div class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                            <div>
+                        <div class="flex flex-wrap items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg gap-2">
+                            <div class="flex items-center gap-2">
                                 <span class="font-medium text-sm">${user.id}</span>
-                                <span class="text-xs text-slate-500 ml-1">${user.name}</span>
-                                <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'} ml-1">
-                                    ${isAdmin ? '👑' : '👤'}
+                                <span class="text-xs text-slate-500">${user.name}</span>
+                                <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'}">
+                                    ${isAdmin ? '👑 Admin' : '👤 User'}
                                 </span>
                             </div>
-                            ${!isDefault ? `
-                                <button onclick="deleteUserAccount('${user.id}')" 
-                                        class="text-red-500 hover:text-red-700 text-sm">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            ` : `
-                                <span class="text-xs text-slate-400">Default</span>
-                            `}
+                            <div class="flex gap-1">
+                                ${!isDefault ? `
+                                    <button onclick="showResetPassword('${user.id}')" 
+                                            class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    <button onclick="deleteUserAccount('${user.id}')" 
+                                            class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : `
+                                    <span class="text-xs text-slate-400 px-2 py-1">Default</span>
+                                `}
+                            </div>
                         </div>
                     `;
                 });
@@ -1030,16 +1227,25 @@
             }
         }
 
+        function filterUserList() {
+            loadUserList();
+        }
+
         document.getElementById('add-user-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const id = document.getElementById('new-id').value.trim();
+            const id = document.getElementById('new-id').value.trim().toUpperCase();
             const name = document.getElementById('new-name').value.trim();
             const password = document.getElementById('new-password').value.trim();
             const role = document.getElementById('new-role').value;
             
             if (!id || !name || !password) {
                 Swal.fire({ icon: 'warning', title: 'Lengkapi Data', text: 'Semua field harus diisi' });
+                return;
+            }
+            
+            if (password.length < 4) {
+                Swal.fire({ icon: 'warning', title: 'Password Terlalu Pendek', text: 'Minimal 4 karakter' });
                 return;
             }
             
@@ -1056,6 +1262,48 @@
                 document.getElementById('new-password').value = '';
                 
                 Swal.fire({ icon: 'success', title: 'User Ditambahkan', text: `User ${id} - ${name} dibuat` });
+                await loadUserList();
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
+            }
+        });
+
+        function showResetPassword(userId) {
+            resetTargetUser = userId;
+            document.getElementById('reset-user-info').textContent = `User: ${userId}`;
+            document.getElementById('reset-new-password').value = '';
+            document.getElementById('reset-confirm-password').value = '';
+            document.getElementById('reset-password-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('reset-password-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const newPass = document.getElementById('reset-new-password').value.trim();
+            const confirmPass = document.getElementById('reset-confirm-password').value.trim();
+            
+            if (!newPass || newPass.length < 4) {
+                Swal.fire({ icon: 'warning', title: 'Password Terlalu Pendek', text: 'Minimal 4 karakter' });
+                return;
+            }
+            
+            if (newPass !== confirmPass) {
+                Swal.fire({ icon: 'warning', title: 'Password Tidak Sama', text: 'Konfirmasi password harus sama' });
+                return;
+            }
+            
+            try {
+                const user = await getUserById(resetTargetUser);
+                if (!user) {
+                    Swal.fire({ icon: 'error', title: 'User Tidak Ditemukan' });
+                    return;
+                }
+                
+                user.password = newPass;
+                await updateUser(resetTargetUser, user);
+                
+                Swal.fire({ icon: 'success', title: 'Password Direset', text: `Password untuk ${resetTargetUser} telah diubah` });
+                closeModal('reset-password-modal');
                 await loadUserList();
             } catch (error) {
                 Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
@@ -1083,6 +1331,155 @@
             }
         }
 
+        // ============================================
+        // 13. ADMIN - SEMUA ABSENSI
+        // ============================================
+        async function showAllAbsensi() {
+            document.getElementById('all-absensi-modal').classList.remove('hidden');
+            await loadAllAbsensi();
+        }
+
+        async function loadAllAbsensi() {
+            try {
+                allAbsensiData = await getAllAbsensi();
+                // Sort by newest
+                allAbsensiData.sort((a, b) => b.id - a.id);
+                filteredAbsensiData = [...allAbsensiData];
+                renderAdminTable();
+            } catch (error) {
+                console.error('Error loading all absensi:', error);
+                document.getElementById('all-absensi-body').innerHTML = 
+                    '<tr><td colspan="8" class="text-center py-4 text-red-500">Gagal memuat data</td></tr>';
+            }
+        }
+
+        function filterAdminAbsensi() {
+            const search = document.getElementById('admin-search-user').value.toLowerCase();
+            const date = document.getElementById('admin-filter-date').value;
+            const status = document.getElementById('admin-filter-status').value;
+            
+            filteredAbsensiData = allAbsensiData.filter(item => {
+                let match = true;
+                if (search) {
+                    match = match && (item.user_id.toLowerCase().includes(search) || 
+                                     (item.user_name && item.user_name.toLowerCase().includes(search)));
+                }
+                if (date) {
+                    match = match && item.tanggal === date;
+                }
+                if (status) {
+                    match = match && item.status === status;
+                }
+                return match;
+            });
+            
+            renderAdminTable();
+        }
+
+        function resetAdminFilter() {
+            document.getElementById('admin-search-user').value = '';
+            document.getElementById('admin-filter-date').value = '';
+            document.getElementById('admin-filter-status').value = '';
+            filteredAbsensiData = [...allAbsensiData];
+            renderAdminTable();
+        }
+
+        function renderAdminTable() {
+            const tbody = document.getElementById('all-absensi-body');
+            const total = document.getElementById('admin-total-count');
+            
+            total.textContent = filteredAbsensiData.length;
+            
+            if (filteredAbsensiData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-slate-400">Tidak ada data</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            filteredAbsensiData.forEach((item, index) => {
+                const statusClass = item.status === 'Terlambat' ? 'text-red-600 dark:text-red-400' :
+                                   item.status === 'Tepat Waktu' ? 'text-green-600 dark:text-green-400' :
+                                   'text-blue-600 dark:text-blue-400';
+                html += `
+                    <tr class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
+                        <td class="p-2 text-center">${index + 1}</td>
+                        <td class="p-2 font-medium">${item.user_id}</td>
+                        <td class="p-2">${item.user_name || '-'}</td>
+                        <td class="p-2">${item.tanggal}</td>
+                        <td class="p-2">${item.waktu}</td>
+                        <td class="p-2 capitalize">${item.jenis_absen}</td>
+                        <td class="p-2 font-bold ${statusClass}">${item.status}</td>
+                        <td class="p-2">${item.jarak}m</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ============================================
+        // 14. ADMIN - EXPORT EXCEL
+        // ============================================
+        async function exportToExcel() {
+            try {
+                const data = await getAllAbsensi();
+                if (data.length === 0) {
+                    Swal.fire({ icon: 'info', title: 'Tidak Ada Data', text: 'Belum ada data absensi untuk diexport' });
+                    return;
+                }
+                
+                // Get user data for mapping
+                const users = await getUsers();
+                const userMap = {};
+                users.forEach(u => { userMap[u.id] = u.name; });
+                
+                // Prepare data for Excel
+                const excelData = data.map((item, index) => ({
+                    'No': index + 1,
+                    'ID Karyawan': item.user_id,
+                    'Nama': item.user_name || userMap[item.user_id] || '-',
+                    'Tanggal': item.tanggal,
+                    'Jam': item.waktu,
+                    'Jenis Absen': item.jenis_absen === 'masuk' ? 'Masuk' : 'Pulang',
+                    'Status': item.status,
+                    'Jarak (meter)': item.jarak,
+                    'Latitude': item.lat || '-',
+                    'Longitude': item.lng || '-',
+                    'Timestamp': item.timestamp || '-'
+                }));
+                
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.json_to_sheet(excelData);
+                XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
+                
+                // Auto column width
+                const colWidths = [
+                    { wch: 5 }, { wch: 15 }, { wch: 20 }, { wch: 12 },
+                    { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
+                    { wch: 15 }, { wch: 15 }, { wch: 20 }
+                ];
+                ws['!cols'] = colWidths;
+                
+                // Generate file
+                const filename = `Absensi_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Export Berhasil',
+                    text: `${data.length} data berhasil diexport ke ${filename}`,
+                    confirmButtonColor: '#3085d6'
+                });
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                Swal.fire({ icon: 'error', title: 'Gagal Export', text: 'Terjadi kesalahan saat export data' });
+            }
+        }
+
+        // ============================================
+        // 15. ADMIN - SETTINGS
+        // ============================================
         function showSettings() {
             document.getElementById('settings-modal').classList.remove('hidden');
             document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
@@ -1093,31 +1490,36 @@
         function updateSetting(type) {
             if (type === 'radius') {
                 const value = parseInt(document.getElementById('setting-radius').value);
-                if (value > 0) {
+                if (value > 0 && value <= 100) {
                     CONFIG.RADIUS_MAKSIMAL = value;
                     saveConfig('radius', value);
                     document.getElementById('radius-info').textContent = `Radius: ${value}m`;
+                    document.getElementById('status-lokasi').textContent = '✅ Updated';
                     Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter`, timer: 1500 });
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Radius harus 1-100 meter' });
                 }
             } else if (type === 'masuk') {
                 const value = document.getElementById('setting-masuk').value;
                 const hour = parseInt(value.split(':')[0]);
                 CONFIG.JAM_MASUK_MAX = hour;
                 saveConfig('jam_masuk', value);
+                document.getElementById('jam-masuk-display').textContent = `Batas ${value}`;
                 Swal.fire({ icon: 'success', title: 'Jam Masuk Diperbarui', text: value, timer: 1500 });
             } else if (type === 'pulang') {
                 const value = document.getElementById('setting-pulang').value;
                 const hour = parseInt(value.split(':')[0]);
                 CONFIG.JAM_PULANG_MIN = hour;
                 saveConfig('jam_pulang', value);
+                document.getElementById('jam-pulang-display').textContent = `Mulai ${value}`;
                 Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: value, timer: 1500 });
             }
         }
 
-        async function resetData() {
+        async function resetAllData() {
             const result = await Swal.fire({
                 title: '⚠️ Reset Semua Data',
-                text: 'Hapus semua data absensi?',
+                text: 'Hapus semua data absensi? Tindakan ini tidak dapat dibatalkan!',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -1127,8 +1529,11 @@
             if (result.isConfirmed) {
                 try {
                     await deleteAllAbsensi();
-                    await loadTodayLog();
-                    Swal.fire({ icon: 'success', title: 'Data Direset' });
+                    await loadUserLog();
+                    if (currentUser.role === 'admin') {
+                        await loadAllAbsensi();
+                    }
+                    Swal.fire({ icon: 'success', title: 'Data Direset', text: 'Semua data absensi telah dihapus' });
                 } catch (error) {
                     Swal.fire({ icon: 'error', title: 'Gagal' });
                 }
@@ -1140,13 +1545,12 @@
         }
 
         // ============================================
-        // 13. INIT
+        // 16. INIT
         // ============================================
         async function init() {
             try {
                 await initDatabase();
                 
-                // Cek default admin
                 const users = await getUsers();
                 const adminExists = users.some(u => u.id === 'admin');
                 if (!adminExists) {
@@ -1154,7 +1558,6 @@
                     console.log('✅ Default admin created: admin / admin123');
                 }
                 
-                // Load config
                 const config = await getConfig();
                 if (config.radius) CONFIG.RADIUS_MAKSIMAL = parseInt(config.radius);
                 if (config.jam_masuk) {
@@ -1175,7 +1578,6 @@
             }
         }
 
-        // Cleanup
         window.addEventListener('beforeunload', () => {
             if (watchId) navigator.geolocation.clearWatch(watchId);
             if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
@@ -1183,11 +1585,15 @@
 
         init();
 
-        // ============================================
-        // 14. TESTING (console)
-        // ============================================
         console.log('📌 Default Admin: admin / admin123');
-        console.log('📌 Contoh User: (buat dari admin panel)');
+        console.log('📌 Fitur Admin:');
+        console.log('  - Kelola User (Tambah/Hapus/Reset Password)');
+        console.log('  - Lihat Semua Absensi (dengan filter)');
+        console.log('  - Export Excel');
+        console.log('  - Pengaturan (Radius, Jam)');
+        console.log('📌 Fitur User:');
+        console.log('  - Absen Masuk/Pulang (Geofencing 20m)');
+        console.log('  - Lihat Riwayat Absensi (filter tanggal)');
     </script>
 </body>
 </html>
