@@ -107,6 +107,32 @@
         .custom-scroll::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+
+        /* Range date input styling */
+        .date-range-group {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+        .date-range-group .date-input {
+            flex: 1;
+        }
+        .date-range-group .range-label {
+            color: #94a3b8;
+            font-weight: bold;
+            text-align: center;
+            padding: 0 4px;
+        }
+        @media (max-width: 480px) {
+            .date-range-group {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            .date-range-group .range-label {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -414,7 +440,9 @@
             </div>
         </div>
 
-        <!-- MODAL EXPORT EXCEL - DENGAN PEMILIHAN TANGGAL -->
+        <!-- ========================================== -->
+        <!-- MODAL EXPORT EXCEL - DENGAN RENTANG TANGGAL -->
+        <!-- ========================================== -->
         <div id="export-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
                 <div class="flex justify-between items-center mb-4">
@@ -425,31 +453,62 @@
                 </div>
                 
                 <div class="space-y-4">
+                    <!-- Rentang Tanggal -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            <i class="fas fa-calendar-alt mr-2"></i>Pilih Tanggal
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            <i class="fas fa-calendar-alt mr-2"></i>Rentang Tanggal
                         </label>
-                        <input type="date" id="export-date" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
-                        <p class="text-xs text-slate-400 mt-1">Kosongkan untuk export semua data</p>
+                        <div class="date-range-group">
+                            <div>
+                                <input type="date" id="export-date-from" 
+                                       class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                                       placeholder="Tanggal Mulai">
+                                <p class="text-xs text-slate-400 mt-1">Tanggal Mulai</p>
+                            </div>
+                            <span class="range-label text-slate-400 font-bold">s/d</span>
+                            <div>
+                                <input type="date" id="export-date-to" 
+                                       class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                                       placeholder="Tanggal Selesai">
+                                <p class="text-xs text-slate-400 mt-1">Tanggal Selesai</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex gap-2 flex-wrap">
+                            <button onclick="setQuickDate('today')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">
+                                Hari Ini
+                            </button>
+                            <button onclick="setQuickDate('week')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">
+                                Minggu Ini
+                            </button>
+                            <button onclick="setQuickDate('month')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">
+                                Bulan Ini
+                            </button>
+                            <button onclick="setQuickDate('all')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">
+                                Semua Data
+                            </button>
+                        </div>
                     </div>
                     
+                    <!-- Filter User -->
                     <div>
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            <i class="fas fa-filter mr-2"></i>Filter User (Opsional)
+                            <i class="fas fa-user mr-2"></i>Filter User (Opsional)
                         </label>
                         <input type="text" id="export-user-filter" placeholder="Cari ID atau Nama..." 
                                class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
                     </div>
                     
+                    <!-- Preview -->
                     <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-sm">
                         <p class="text-slate-600 dark:text-slate-300">
                             <i class="fas fa-info-circle text-blue-500 mr-1"></i>
                             Data akan diexport ke format <b>.xlsx</b>
                         </p>
                         <p class="text-xs text-slate-400 mt-1" id="export-preview">0 data akan diexport</p>
+                        <p class="text-xs text-slate-400" id="export-date-range">Rentang: -</p>
                     </div>
                     
+                    <!-- Tombol -->
                     <div class="flex gap-2">
                         <button onclick="exportToExcel()" 
                                 class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition">
@@ -1455,28 +1514,61 @@
         }
 
         // ============================================
-        // 14. ADMIN - EXPORT EXCEL (DENGAN PILIHAN TANGGAL)
+        // 14. ADMIN - EXPORT EXCEL (RENTANG TANGGAL)
         // ============================================
         function showExportModal() {
             document.getElementById('export-modal').classList.remove('hidden');
-            document.getElementById('export-date').value = '';
+            document.getElementById('export-date-from').value = '';
+            document.getElementById('export-date-to').value = '';
             document.getElementById('export-user-filter').value = '';
             document.getElementById('export-preview').textContent = '0 data akan diexport';
+            document.getElementById('export-date-range').textContent = 'Rentang: -';
             
-            // Preview data
+            // Set default: hari ini
+            setQuickDate('today');
+        }
+
+        function setQuickDate(type) {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            if (type === 'today') {
+                document.getElementById('export-date-from').value = todayStr;
+                document.getElementById('export-date-to').value = todayStr;
+            } else if (type === 'week') {
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - today.getDay());
+                document.getElementById('export-date-from').value = weekStart.toISOString().split('T')[0];
+                document.getElementById('export-date-to').value = todayStr;
+            } else if (type === 'month') {
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                document.getElementById('export-date-from').value = monthStart.toISOString().split('T')[0];
+                document.getElementById('export-date-to').value = todayStr;
+            } else if (type === 'all') {
+                document.getElementById('export-date-from').value = '';
+                document.getElementById('export-date-to').value = '';
+            }
+            
             updateExportPreview();
         }
 
         function updateExportPreview() {
-            const date = document.getElementById('export-date').value;
+            const dateFrom = document.getElementById('export-date-from').value;
+            const dateTo = document.getElementById('export-date-to').value;
             const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
             
             let data = allAbsensiData;
             
-            if (date) {
-                data = data.filter(item => item.tanggal === date);
+            // Filter rentang tanggal
+            if (dateFrom && dateTo) {
+                data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
+            } else if (dateFrom) {
+                data = data.filter(item => item.tanggal >= dateFrom);
+            } else if (dateTo) {
+                data = data.filter(item => item.tanggal <= dateTo);
             }
             
+            // Filter user
             if (userFilter) {
                 data = data.filter(item => 
                     item.user_id.toLowerCase().includes(userFilter) ||
@@ -1484,23 +1576,43 @@
                 );
             }
             
+            // Update preview
             document.getElementById('export-preview').textContent = `${data.length} data akan diexport`;
+            
+            // Update range info
+            let rangeText = 'Rentang: ';
+            if (dateFrom && dateTo) {
+                rangeText += `${dateFrom} s/d ${dateTo}`;
+            } else if (dateFrom) {
+                rangeText += `Mulai ${dateFrom}`;
+            } else if (dateTo) {
+                rangeText += `Sampai ${dateTo}`;
+            } else {
+                rangeText += 'Semua data';
+            }
+            document.getElementById('export-date-range').textContent = rangeText;
         }
 
         // Event listener untuk preview
-        document.getElementById('export-date').addEventListener('change', updateExportPreview);
+        document.getElementById('export-date-from').addEventListener('change', updateExportPreview);
+        document.getElementById('export-date-to').addEventListener('change', updateExportPreview);
         document.getElementById('export-user-filter').addEventListener('input', updateExportPreview);
 
         async function exportToExcel() {
             try {
-                const date = document.getElementById('export-date').value;
+                const dateFrom = document.getElementById('export-date-from').value;
+                const dateTo = document.getElementById('export-date-to').value;
                 const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
                 
                 let data = await getAllAbsensi();
                 
-                // Filter tanggal
-                if (date) {
-                    data = data.filter(item => item.tanggal === date);
+                // Filter rentang tanggal
+                if (dateFrom && dateTo) {
+                    data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
+                } else if (dateFrom) {
+                    data = data.filter(item => item.tanggal >= dateFrom);
+                } else if (dateTo) {
+                    data = data.filter(item => item.tanggal <= dateTo);
                 }
                 
                 // Filter user
@@ -1553,10 +1665,14 @@
                 ];
                 ws['!cols'] = colWidths;
                 
-                // Generate filename dengan tanggal jika ada filter
+                // Generate filename
                 let filename = 'Absensi';
-                if (date) {
-                    filename += `_${date}`;
+                if (dateFrom && dateTo) {
+                    filename += `_${dateFrom}_sampai_${dateTo}`;
+                } else if (dateFrom) {
+                    filename += `_dari_${dateFrom}`;
+                } else if (dateTo) {
+                    filename += `_sampai_${dateTo}`;
                 } else {
                     filename += `_${new Date().toISOString().split('T')[0]}`;
                 }
@@ -1677,7 +1793,6 @@
                     CONFIG.JAM_PULANG_MIN = hour;
                 }
                 
-                // Load all data for admin
                 allAbsensiData = await getAllAbsensi();
                 allAbsensiData.sort((a, b) => b.id - a.id);
                 
@@ -1699,10 +1814,11 @@
 
         console.log('📌 Default Admin: admin / admin123');
         console.log('📌 Fitur Export Excel:');
-        console.log('  - Pilih tanggal spesifik');
-        console.log('  - Filter berdasarkan user');
-        console.log('  - Preview jumlah data');
-        console.log('  - Nama file otomatis');
+        console.log('  - Rentang tanggal (dari - sampai)');
+        console.log('  - Quick date: Hari Ini, Minggu Ini, Bulan Ini, Semua');
+        console.log('  - Filter user');
+        console.log('  - Preview data');
+        console.log('  - Nama file otomatis dengan rentang tanggal');
     </script>
 </body>
 </html>
