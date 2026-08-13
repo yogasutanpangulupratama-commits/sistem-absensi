@@ -386,37 +386,43 @@
         <main class="max-w-4xl mx-auto p-4 pb-20">
             
             <!-- Admin Panel -->
-            <div id="admin-panel" class="hidden mb-4">
-                <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
-                    <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
-                    <button onclick="showPendingUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-user-clock text-yellow-600 text-xl block mb-1"></i>
-                        Verifikasi User
-                    </button>
-                    <button onclick="showManageUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-users text-blue-600 text-xl block mb-1"></i>
-                        Kelola User
-                    </button>
-                    <button onclick="showAllAbsensi()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-database text-green-600 text-xl block mb-1"></i>
-                        Semua Absensi
-                    </button>
-                    <button onclick="showExportModal()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-file-excel text-emerald-600 text-xl block mb-1"></i>
-                        Export Excel
-                    </button>
-                    <button onclick="showSettings()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-cog text-purple-600 text-xl block mb-1"></i>
-                        Pengaturan
-                    </button>
-                    <button onclick="syncToFirebase()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-cloud-upload-alt text-indigo-600 text-xl block mb-1"></i>
-                        Sync ke Cloud
-                    </button>
-                </div>
-            </div>
+<div id="admin-panel" class="hidden mb-4">
+    <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
+        <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
+        <button onclick="showPendingUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-user-clock text-yellow-600 text-xl block mb-1"></i>
+            Verifikasi User
+        </button>
+        <button onclick="showManageUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-users text-blue-600 text-xl block mb-1"></i>
+            Kelola User
+        </button>
+        <button onclick="showAllAbsensi()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-database text-green-600 text-xl block mb-1"></i>
+            Semua Absensi
+        </button>
+        <button onclick="showExportModal()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-file-excel text-emerald-600 text-xl block mb-1"></i>
+            Export Excel
+        </button>
+        <button onclick="showSettings()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-cog text-purple-600 text-xl block mb-1"></i>
+            Pengaturan
+        </button>
+        <button onclick="syncToFirebase()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-cloud-upload-alt text-indigo-600 text-xl block mb-1"></i>
+            Sync ke Cloud
+        </button>
+        <!-- ===== TOMBOL CEK DATA (BARU) ===== -->
+        <button onclick="checkFirestoreData()" 
+                class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
+            <i class="fas fa-search text-purple-600 text-xl block mb-1"></i>
+            Cek Data
+        </button>
+    </div>
+</div>
 
             <!-- Status GPS -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-4">
@@ -874,61 +880,79 @@
         }
 
         // ============================================
-        // CEK KONEKSI FIREBASE
-        // ============================================
-        async function checkFirebaseConnection() {
-            const statusEl = document.getElementById('firebase-status');
-            const dotEl = document.getElementById('firebase-dot');
-            const textEl = document.getElementById('firebase-status-text');
-            const retryBtn = document.getElementById('btn-retry-firebase');
-            
-            if (!firebaseInitialized) {
-                statusEl.className = 'connection-status offline';
-                dotEl.className = 'status-dot offline';
-                textEl.textContent = '❌ Firebase SDK Error';
-                retryBtn.classList.remove('hidden');
-                firebaseConnected = false;
-                document.getElementById('cloud-status-text').textContent = '❌ Error';
-                return false;
-            }
+// CEK KONEKSI FIREBASE - DIPERBAIKI
+// ============================================
+async function checkFirebaseConnection() {
+    const statusEl = document.getElementById('firebase-status');
+    const dotEl = document.getElementById('firebase-dot');
+    const textEl = document.getElementById('firebase-status-text');
+    const retryBtn = document.getElementById('btn-retry-firebase');
+    
+    if (!firebaseInitialized) {
+        statusEl.className = 'connection-status offline';
+        dotEl.className = 'status-dot offline';
+        textEl.textContent = '❌ Firebase SDK Error';
+        retryBtn.classList.remove('hidden');
+        firebaseConnected = false;
+        return false;
+    }
 
-            try {
-                const db = firebase.firestore();
-                await db.collection('_test').doc('test').set({ 
-                    test: true, 
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp() 
-                });
-                await db.collection('_test').doc('test').delete();
-                
-                statusEl.className = 'connection-status online';
-                dotEl.className = 'status-dot online';
-                textEl.textContent = '✅ Firebase Terhubung (Online)';
-                retryBtn.classList.add('hidden');
-                firebaseConnected = true;
-                document.getElementById('cloud-status-text').textContent = '✅ Terkoneksi';
-                console.log('✅ Firebase connection: ONLINE');
-                return true;
-                
-            } catch (error) {
-                console.warn('⚠️ Firebase connection failed:', error.message);
-                let errorMessage = '❌ Firebase Tidak Terhubung';
-                if (error.message.includes('permission')) {
-                    errorMessage = '❌ Permission Denied - Cek Firestore Rules';
-                } else if (error.message.includes('network')) {
-                    errorMessage = '❌ No Internet Connection';
-                } else if (error.message.includes('Firestore')) {
-                    errorMessage = '❌ Firestore Not Enabled';
-                }
-                
-                statusEl.className = 'connection-status offline';
-                dotEl.className = 'status-dot offline';
-                textEl.textContent = errorMessage;
-                retryBtn.classList.remove('hidden');
-                firebaseConnected = false;
-                document.getElementById('cloud-status-text').textContent = '❌ Offline';
-                return false;
-            }
+    try {
+        const db = firebase.firestore();
+        
+        // Coba tulis dan baca
+        const testRef = db.collection('_test').doc('connection_test');
+        await testRef.set({ 
+            test: true, 
+            timestamp: firebase.firestore.FieldValue.serverTimestamp() 
+        });
+        await testRef.delete();
+        
+        statusEl.className = 'connection-status online';
+        dotEl.className = 'status-dot online';
+        textEl.textContent = '✅ Firebase Terhubung (Online)';
+        retryBtn.classList.add('hidden');
+        firebaseConnected = true;
+        
+        document.getElementById('cloud-status-text').textContent = '✅ Terkoneksi';
+        document.getElementById('connection-status-text').innerHTML = '🟢 Online';
+        
+        console.log('✅ Firebase connection: ONLINE');
+        
+        // Auto load data setelah koneksi
+        if (currentUser && currentUser.role === 'admin') {
+            setTimeout(async () => {
+                await loadPendingUsers();
+                await loadUserList();
+            }, 1000);
         }
+        
+        return true;
+        
+    } catch (error) {
+        console.warn('⚠️ Firebase connection failed:', error.message);
+        
+        let errorMessage = '❌ Firebase Tidak Terhubung';
+        if (error.message.includes('permission')) {
+            errorMessage = '❌ Permission Denied - Cek Firestore Rules';
+        } else if (error.message.includes('network')) {
+            errorMessage = '❌ No Internet Connection';
+        } else if (error.message.includes('Firestore')) {
+            errorMessage = '❌ Firestore Not Enabled';
+        }
+        
+        statusEl.className = 'connection-status offline';
+        dotEl.className = 'status-dot offline';
+        textEl.textContent = errorMessage;
+        retryBtn.classList.remove('hidden');
+        firebaseConnected = false;
+        
+        document.getElementById('cloud-status-text').textContent = '❌ Offline';
+        document.getElementById('connection-status-text').innerHTML = '🔴 Offline';
+        
+        return false;
+    }
+}
 
         function retryFirebaseConnection() {
             const btn = document.getElementById('btn-retry-firebase');
@@ -1956,34 +1980,53 @@ async function showPendingUsers() {
     await loadPendingUsers();
 }
 
+// ============================================
+// LOAD PENDING USERS - PERBAIKAN
+// ============================================
 async function loadPendingUsers() {
     const list = document.getElementById('pending-users-list');
-    if (!list) return;
+    if (!list) {
+        console.warn('⚠️ Element pending-users-list tidak ditemukan');
+        return;
+    }
     
     try {
+        console.log('🔄 Memuat pending users...');
         let users = [];
         
-        // 1. Coba baca dari Firebase
+        // Coba baca dari Firebase
         if (firebaseConnected) {
             try {
                 const db = firebase.firestore();
                 const snapshot = await db.collection('users')
                     .where('status', '==', 'pending')
                     .get();
+                
                 snapshot.forEach(doc => {
                     users.push(doc.data());
                 });
                 console.log(`📥 Loaded ${users.length} pending users from Firebase`);
+                
             } catch (firebaseError) {
-                console.warn('Firebase read error, fallback to local:', firebaseError);
+                console.warn('⚠️ Firebase read error:', firebaseError.message);
+                // Fallback ke lokal
                 users = await getPendingUsers();
+                console.log(`📥 Loaded ${users.length} pending users from Local`);
             }
         } else {
             users = await getPendingUsers();
+            console.log(`📥 Loaded ${users.length} pending users from Local (offline)`);
         }
         
+        // Tampilkan hasil
         if (users.length === 0) {
-            list.innerHTML = '<p class="text-center text-slate-400 py-4">Tidak ada user yang menunggu verifikasi</p>';
+            list.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox text-2xl text-slate-300 mb-2 block"></i>
+                    <p class="text-slate-400">Tidak ada user yang menunggu verifikasi</p>
+                    <p class="text-xs text-slate-400 mt-1">💡 Coba daftar user baru dari HP lain</p>
+                </div>
+            `;
             return;
         }
         
@@ -2001,7 +2044,7 @@ async function loadPendingUsers() {
                             const url = await storage.ref(`faces/${user.id}/${type}.jpg`).getDownloadURL();
                             faceImages.push({ type, url });
                         } catch {
-                            // Foto tidak ada di storage
+                            // Foto tidak ada
                         }
                     }
                 } catch (storageError) {
@@ -2010,43 +2053,51 @@ async function loadPendingUsers() {
             }
             
             html += `
-                <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 mb-3">
+                <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 mb-3 border border-slate-200 dark:border-slate-600">
                     <div class="flex flex-wrap justify-between items-start gap-2">
                         <div>
-                            <p class="font-bold">${user.id}</p>
-                            <p class="text-sm text-slate-500">${user.name}</p>
-                            <p class="text-xs text-slate-400">Daftar: ${new Date(user.created_at).toLocaleDateString()}</p>
-                            ${faceImages.length > 0 ? `<p class="text-xs text-green-500">✅ Foto di cloud</p>` : '<p class="text-xs text-yellow-500">⚠️ Foto belum diupload</p>'}
+                            <p class="font-bold text-lg">${user.id}</p>
+                            <p class="text-sm text-slate-500">${user.name || '-'}</p>
+                            <p class="text-xs text-slate-400">Daftar: ${user.created_at ? new Date(user.created_at).toLocaleDateString('id-ID') : '-'}</p>
+                            <p class="text-xs text-slate-400">Status: <span class="text-yellow-600 font-bold">⏳ Pending</span></p>
+                            ${faceImages.length > 0 ? `<p class="text-xs text-green-500">✅ ${faceImages.length} foto wajah tersimpan</p>` : '<p class="text-xs text-yellow-500">⚠️ Belum ada foto wajah</p>'}
                         </div>
                         <div class="flex gap-2">
                             <button onclick="verifyUser('${user.id}', true)" 
-                                    class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs">
+                                    class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold transition">
                                 <i class="fas fa-check mr-1"></i>Setujui
                             </button>
                             <button onclick="verifyUser('${user.id}', false)" 
-                                    class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
+                                    class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition">
                                 <i class="fas fa-times mr-1"></i>Tolak
                             </button>
                         </div>
                     </div>
                     ${faceImages.length > 0 ? `
-                        <div class="flex gap-1 mt-2 overflow-x-auto">
+                        <div class="flex gap-2 mt-3 overflow-x-auto pb-2">
                             ${faceImages.map(f => `
-                                <img src="${f.url}" class="w-12 h-12 rounded-lg object-cover border" 
-                                     onclick="Swal.fire({ imageUrl: '${f.url}', imageWidth: 300, imageHeight: 300, title: '${f.type}', confirmButtonColor: '#3085d6' })">
+                                <img src="${f.url}" class="w-16 h-16 rounded-lg object-cover border-2 border-white shadow" 
+                                     onclick="Swal.fire({ imageUrl: '${f.url}', imageWidth: 400, imageHeight: 400, title: 'Foto ${f.type}', confirmButtonColor: '#3085d6' })">
                             `).join('')}
                         </div>
-                    ` : `
-                        <p class="text-xs text-slate-400 mt-2">Foto tidak tersedia di cloud</p>
-                    `}
+                    ` : ''}
                 </div>
             `;
         }
         list.innerHTML = html;
         
     } catch (error) {
-        console.error('Error loading pending users:', error);
-        list.innerHTML = '<p class="text-center text-red-500 py-4">Gagal memuat data</p>';
+        console.error('❌ Error loading pending users:', error);
+        list.innerHTML = `
+            <div class="text-center py-4 text-red-500">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2 block"></i>
+                <p>Gagal memuat data</p>
+                <p class="text-xs text-slate-400">${error.message}</p>
+                <button onclick="loadPendingUsers()" class="mt-2 px-4 py-1 bg-blue-500 text-white rounded text-sm">
+                    <i class="fas fa-sync mr-1"></i>Coba Lagi
+                </button>
+            </div>
+        `;
     }
 }
 
@@ -2136,68 +2187,101 @@ async function verifyUser(userId, approve) {
             await loadUserList();
         }
 
-        async function loadUserList() {
-            const list = document.getElementById('user-list');
+        // ============================================
+// LOAD USER LIST - PERBAIKAN
+// ============================================
+async function loadUserList() {
+    const list = document.getElementById('user-list');
+    if (!list) return;
+    
+    try {
+        console.log('🔄 Memuat user list...');
+        let users = [];
+        
+        // Baca dari Firebase
+        if (firebaseConnected) {
             try {
-                const users = await loadUsersFromFirebase();
-                if (users.length === 0) {
-                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">Belum ada user</p>';
-                    return;
-                }
-                
-                const search = document.getElementById('search-user')?.value.toLowerCase() || '';
-                const filtered = users.filter(u => 
-                    u.id.toLowerCase().includes(search) || 
-                    (u.name && u.name.toLowerCase().includes(search))
-                );
-                
-                if (filtered.length === 0) {
-                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">User tidak ditemukan</p>';
-                    return;
-                }
-                
-                let html = '';
-                for (const user of filtered) {
-                    const isAdmin = user.role === 'admin';
-                    const isDefault = user.id === 'admin';
-                    const statusBadge = user.status === 'approved' ? '✅' :
-                                       user.status === 'pending' ? '⏳' : '❌';
-                    const statusColor = user.status === 'approved' ? 'text-green-600' :
-                                       user.status === 'pending' ? 'text-yellow-600' : 'text-red-600';
-                    
-                    html += `
-                        <div class="flex flex-wrap items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg gap-2">
-                            <div class="flex items-center gap-2">
-                                <span class="font-medium text-sm">${user.id}</span>
-                                <span class="text-xs text-slate-500">${user.name || '-'}</span>
-                                <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'}">
-                                    ${isAdmin ? '👑 Admin' : '👤 User'}
-                                </span>
-                                <span class="text-xs ${statusColor}">${statusBadge} ${user.status}</span>
-                            </div>
-                            <div class="flex gap-1">
-                                ${!isDefault ? `
-                                    <button onclick="showResetPassword('${user.id}')" 
-                                            class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
-                                        <i class="fas fa-key"></i>
-                                    </button>
-                                    <button onclick="deleteUserAction('${user.id}')" 
-                                            class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                ` : `
-                                    <span class="text-xs text-slate-400 px-2 py-1">Default</span>
-                                `}
-                            </div>
-                        </div>
-                    `;
-                }
-                list.innerHTML = html;
+                const db = firebase.firestore();
+                const snapshot = await db.collection('users').get();
+                snapshot.forEach(doc => {
+                    users.push(doc.data());
+                });
+                console.log(`📥 Loaded ${users.length} users from Firebase`);
             } catch (error) {
-                console.error('Error loading users:', error);
-                list.innerHTML = '<p class="text-center text-sm text-red-500">Gagal memuat</p>';
+                console.warn('Firebase read error, fallback to local:', error);
+                users = await getUsers();
             }
+        } else {
+            users = await getUsers();
         }
+        
+        // Update total users
+        const totalEl = document.getElementById('total-users');
+        if (totalEl) {
+            totalEl.textContent = users.length;
+        }
+        
+        if (users.length === 0) {
+            list.innerHTML = `
+                <div class="text-center py-4 text-slate-400">
+                    <i class="fas fa-users text-2xl mb-2 block"></i>
+                    <p>Belum ada user terdaftar</p>
+                    <p class="text-xs mt-1">💡 Silakan daftar user baru</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Filter
+        const search = document.getElementById('search-user')?.value.toLowerCase() || '';
+        const filtered = users.filter(u => 
+            u.id.toLowerCase().includes(search) || 
+            (u.name && u.name.toLowerCase().includes(search))
+        );
+        
+        let html = '';
+        for (const user of filtered) {
+            const isAdmin = user.role === 'admin';
+            const isDefault = user.id === 'admin';
+            const statusBadge = user.status === 'approved' ? '✅' :
+                               user.status === 'pending' ? '⏳' : '❌';
+            const statusColor = user.status === 'approved' ? 'text-green-600' :
+                               user.status === 'pending' ? 'text-yellow-600' : 'text-red-600';
+            
+            html += `
+                <div class="flex flex-wrap items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-medium text-sm">${user.id}</span>
+                        <span class="text-xs text-slate-500">${user.name || '-'}</span>
+                        <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'}">
+                            ${isAdmin ? '👑 Admin' : '👤 User'}
+                        </span>
+                        <span class="text-xs ${statusColor}">${statusBadge} ${user.status}</span>
+                    </div>
+                    <div class="flex gap-1">
+                        ${!isDefault ? `
+                            <button onclick="showResetPassword('${user.id}')" 
+                                    class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
+                                <i class="fas fa-key"></i>
+                            </button>
+                            <button onclick="deleteUserAction('${user.id}')" 
+                                    class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : `
+                            <span class="text-xs text-slate-400 px-2 py-1">Default</span>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+        list.innerHTML = html || '<p class="text-center text-slate-400 py-2">User tidak ditemukan</p>';
+        
+    } catch (error) {
+        console.error('Error loading users:', error);
+        list.innerHTML = '<p class="text-center text-red-500 py-2">Gagal memuat data</p>';
+    }
+}
 
         function filterUserList() {
             loadUserList();
@@ -3140,6 +3224,71 @@ async function verifyUser(userId, approve) {
             document.getElementById('user-filter-date').value = '';
             loadUserLog();
         }
+
+// ============================================
+// CEK DATA DI FIRESTORE (DEBUGGING)
+// ============================================
+async function checkFirestoreData() {
+    console.log('🔍 MENGECEK DATA DI FIRESTORE...');
+    
+    if (!firebaseConnected) {
+        console.warn('⚠️ Firebase tidak terhubung!');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Firebase Offline',
+            text: 'Tidak bisa mengecek data. Pastikan koneksi internet aktif.',
+            confirmButtonColor: '#f39c12'
+        });
+        return;
+    }
+    
+    try {
+        const db = firebase.firestore();
+        
+        // Cek semua users
+        const usersSnapshot = await db.collection('users').get();
+        console.log(`📊 Total users di Firebase: ${usersSnapshot.size}`);
+        usersSnapshot.forEach(doc => {
+            console.log(`  - ${doc.id}:`, doc.data());
+        });
+        
+        // Cek pending users
+        const pendingSnapshot = await db.collection('users')
+            .where('status', '==', 'pending')
+            .get();
+        console.log(`📊 Pending users: ${pendingSnapshot.size}`);
+        pendingSnapshot.forEach(doc => {
+            console.log(`  - ${doc.id} (pending):`, doc.data());
+        });
+        
+        // Tampilkan alert
+        Swal.fire({
+            icon: 'info',
+            title: 'Data di Firebase',
+            html: `
+                <div class="text-left">
+                    <p><b>Total Users:</b> ${usersSnapshot.size}</p>
+                    <p><b>Pending Users:</b> ${pendingSnapshot.size}</p>
+                    <p class="text-xs text-slate-400 mt-2">Cek console (F12) untuk detail</p>
+                </div>
+            `,
+            confirmButtonColor: '#3085d6'
+        });
+        
+        // Refresh UI
+        await loadPendingUsers();
+        await loadUserList();
+        
+    } catch (error) {
+        console.error('❌ Error checking Firestore:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal Cek Data',
+            text: error.message,
+            confirmButtonColor: '#d33'
+        });
+    }
+}
 
         // ============================================
         // INIT
