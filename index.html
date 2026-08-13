@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Absensi - Firebase Full</title>
+    <title>Sistem Absensi - Firebase Free</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,7 +12,6 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
     <style>
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -187,6 +186,19 @@
         .sync-status.syncing { background: #fef3c7; color: #92400e; animation: pulse-sync 1s ease-in-out infinite; }
         .sync-status.error { background: #fee2e2; color: #991b1b; }
         @keyframes pulse-sync { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .face-thumb {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .face-thumb:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -371,7 +383,7 @@
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
                     <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
                     <button onclick="showPendingUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-user-clock text-yellow-600 text-xl block mb-1"></i>
                         Verifikasi User
@@ -394,12 +406,7 @@
                     </button>
                     <button onclick="syncToFirebase()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-cloud-upload-alt text-indigo-600 text-xl block mb-1"></i>
-                        Sync ke Cloud
-                    </button>
-                    <button onclick="checkFirestoreData()" 
-                            class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-search text-purple-600 text-xl block mb-1"></i>
-                        Cek Data
+                        Sync
                     </button>
                 </div>
             </div>
@@ -826,7 +833,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- JAVASCRIPT - FULL -->
+    <!-- JAVASCRIPT -->
     <!-- ========================================== -->
     <script>
         // ============================================
@@ -847,44 +854,57 @@
         // ============================================
         let firebaseConnected = false;
         let firebaseInitialized = false;
+        let firebaseError = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
+            // Enable offline persistence for better performance
+            firebase.firestore().enablePersistence({ synchronizeTabs: true })
+                .then(() => console.log('✅ Firestore persistence enabled'))
+                .catch(err => console.warn('Persistence warning:', err));
             firebaseInitialized = true;
             console.log('✅ Firebase SDK initialized');
         } catch (error) {
             console.error('❌ Firebase init error:', error);
             firebaseInitialized = false;
+            firebaseError = error.message;
         }
 
         // ============================================
-        // CEK KONEKSI FIREBASE
+        // CEK KONEKSI FIREBASE - DENGAN ERROR HANDLING
         // ============================================
         async function checkFirebaseConnection() {
             const statusEl = document.getElementById('firebase-status');
             const dotEl = document.getElementById('firebase-dot');
             const textEl = document.getElementById('firebase-status-text');
             const retryBtn = document.getElementById('btn-retry-firebase');
+            const offlineBadge = document.getElementById('offline-mode-badge');
             
             if (!firebaseInitialized) {
                 statusEl.className = 'connection-status offline';
                 dotEl.className = 'status-dot offline';
-                textEl.textContent = '❌ Firebase SDK Error';
+                textEl.textContent = '❌ Firebase SDK Error: ' + (firebaseError || 'Unknown');
                 retryBtn.classList.remove('hidden');
                 firebaseConnected = false;
+                offlineBadge.classList.remove('hidden');
                 return false;
             }
 
             try {
                 const db = firebase.firestore();
+                // Try to write a test document
                 const testRef = db.collection('_test').doc('connection_test');
-                await testRef.set({ test: true, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                await testRef.set({ 
+                    test: true, 
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp() 
+                });
                 await testRef.delete();
                 
                 statusEl.className = 'connection-status online';
                 dotEl.className = 'status-dot online';
                 textEl.textContent = '✅ Firebase Terhubung (Online)';
                 retryBtn.classList.add('hidden');
+                offlineBadge.classList.add('hidden');
                 firebaseConnected = true;
                 
                 document.getElementById('cloud-status-text').textContent = '✅ Terkoneksi';
@@ -901,6 +921,8 @@
                 
             } catch (error) {
                 console.warn('⚠️ Firebase connection failed:', error.message);
+                firebaseError = error.message;
+                
                 let errorMessage = '❌ Firebase Tidak Terhubung';
                 if (error.message.includes('permission')) {
                     errorMessage = '❌ Permission Denied - Cek Firestore Rules';
@@ -908,14 +930,29 @@
                     errorMessage = '❌ No Internet Connection';
                 } else if (error.message.includes('Firestore')) {
                     errorMessage = '❌ Firestore Not Enabled';
+                } else if (error.message.includes('quota')) {
+                    errorMessage = '⚠️ Quota Exceeded - Mode Offline';
                 }
                 
                 statusEl.className = 'connection-status offline';
                 dotEl.className = 'status-dot offline';
                 textEl.textContent = errorMessage;
                 retryBtn.classList.remove('hidden');
+                offlineBadge.classList.remove('hidden');
                 firebaseConnected = false;
-                document.getElementById('cloud-status-text').textContent = '❌ Offline';
+                
+                document.getElementById('cloud-status-text').textContent = '⚠️ Offline Mode';
+                console.log('⚠️ Running in OFFLINE mode - data saved locally');
+                
+                // Show offline notification
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Mode Offline Aktif',
+                    text: 'Firebase tidak terhubung. Data akan disimpan secara lokal dan disinkronkan saat koneksi kembali.',
+                    confirmButtonColor: '#f39c12',
+                    timer: 3000
+                });
+                
                 return false;
             }
         }
@@ -1101,7 +1138,7 @@
         }
 
         // ============================================
-        // ABSENSI FUNCTIONS - DIPERBAIKI
+        // ABSENSI FUNCTIONS
         // ============================================
         function saveAbsensi(data) {
             return new Promise((resolve, reject) => {
@@ -1145,71 +1182,7 @@
         }
 
         // ============================================
-        // SAVE ABSENSI TO FIREBASE - DIPERBAIKI
-        // ============================================
-        async function saveAbsensiToFirebase(data) {
-            try {
-                if (!firebaseConnected) {
-                    console.warn('Firebase offline, absensi hanya disimpan lokal');
-                    return false;
-                }
-                
-                const db = firebase.firestore();
-                const docId = `absensi_${data.user_id}_${Date.now()}`;
-                
-                await db.collection('absensi').doc(docId).set({
-                    user_id: data.user_id,
-                    user_name: data.user_name || '-',
-                    jenis_absen: data.jenis_absen,
-                    waktu: data.waktu,
-                    tanggal: data.tanggal,
-                    status: data.status,
-                    jarak: data.jarak,
-                    face_score: data.face_score || 0,
-                    lat: data.lat || 0,
-                    lng: data.lng || 0,
-                    timestamp: data.timestamp || new Date().toISOString(),
-                    created_at: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                console.log('✅ Absensi saved to Firebase:', data.user_id, data.jenis_absen);
-                return true;
-                
-            } catch (error) {
-                console.error('❌ Failed to save absensi to Firebase:', error);
-                return false;
-            }
-        }
-
-        // ============================================
-        // LOAD ABSENSI FROM FIREBASE - DIPERBAIKI
-        // ============================================
-        async function loadAbsensiFromFirebase() {
-            try {
-                if (!firebaseConnected) {
-                    return await getAllAbsensi();
-                }
-                
-                const db = firebase.firestore();
-                const snapshot = await db.collection('absensi')
-                    .orderBy('timestamp', 'desc')
-                    .limit(500)
-                    .get();
-                    
-                const absensi = [];
-                snapshot.forEach(doc => {
-                    absensi.push(doc.data());
-                });
-                return absensi;
-                
-            } catch (error) {
-                console.error('Error loading absensi from Firebase:', error);
-                return await getAllAbsensi();
-            }
-        }
-
-        // ============================================
-        // CONFIG FUNCTIONS - DIPERBAIKI
+        // CONFIG FUNCTIONS
         // ============================================
         function getConfig(key) {
             return new Promise((resolve) => {
@@ -1238,7 +1211,7 @@
         }
 
         // ============================================
-        // CONFIGURATION - DIPERBAIKI (PENYIMPANAN PERMANEN)
+        // CONFIGURATION
         // ============================================
         const CONFIG = {
             KANTOR_LAT: -6.1923239,
@@ -1269,7 +1242,6 @@
                 
                 console.log('📌 Config loaded:', CONFIG);
                 
-                // Update UI
                 document.getElementById('radius-info').textContent = `Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
                 document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
                 document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
@@ -1280,7 +1252,7 @@
         }
 
         // ============================================
-        // UPDATE SETTING - DIPERBAIKI
+        // UPDATE SETTING
         // ============================================
         async function updateSetting(type) {
             if (type === 'radius') {
@@ -1325,7 +1297,7 @@
         }
 
         // ============================================
-        // SAVE USER TO FIREBASE
+        // SAVE USER TO FIREBASE - TANPA STORAGE
         // ============================================
         async function saveUserToFirebase(userData, faceImages) {
             try {
@@ -1345,16 +1317,63 @@
                     updated_at: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
+                // SIMPAN FOTO LANGSUNG KE FIRESTORE (BASE64)
                 if (faceImages) {
                     dataToSave.faces = faceImages;
                 }
                 
                 await db.collection('users').doc(userData.id).set(dataToSave);
-                console.log('✅ User saved to Firebase:', userData.id);
+                console.log('✅ User saved to Firebase (with faces stored in Firestore):', userData.id);
                 return true;
                 
             } catch (error) {
                 console.error('❌ Failed to save user to Firebase:', error);
+                // Jika error karena quota atau permission, tetap lanjut dengan mode offline
+                if (error.message.includes('quota') || error.message.includes('permission')) {
+                    firebaseConnected = false;
+                    document.getElementById('cloud-status-text').textContent = '⚠️ Offline Mode';
+                }
+                return false;
+            }
+        }
+
+        // ============================================
+        // SAVE ABSENSI TO FIREBASE
+        // ============================================
+        async function saveAbsensiToFirebase(data) {
+            try {
+                if (!firebaseConnected) {
+                    console.warn('Firebase offline, absensi hanya disimpan lokal');
+                    return false;
+                }
+                
+                const db = firebase.firestore();
+                const docId = `absensi_${data.user_id}_${Date.now()}`;
+                
+                await db.collection('absensi').doc(docId).set({
+                    user_id: data.user_id,
+                    user_name: data.user_name || '-',
+                    jenis_absen: data.jenis_absen,
+                    waktu: data.waktu,
+                    tanggal: data.tanggal,
+                    status: data.status,
+                    jarak: data.jarak,
+                    face_score: data.face_score || 0,
+                    lat: data.lat || 0,
+                    lng: data.lng || 0,
+                    timestamp: data.timestamp || new Date().toISOString(),
+                    created_at: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                console.log('✅ Absensi saved to Firebase:', data.user_id, data.jenis_absen);
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Failed to save absensi to Firebase:', error);
+                if (error.message.includes('quota') || error.message.includes('permission')) {
+                    firebaseConnected = false;
+                    document.getElementById('cloud-status-text').textContent = '⚠️ Offline Mode';
+                }
                 return false;
             }
         }
@@ -1389,87 +1408,156 @@
         }
 
         // ============================================
-        // LOAD PENDING USERS FROM FIREBASE
+        // LOAD PENDING USERS - DENGAN FOTO LANGSUNG
         // ============================================
-        async function loadPendingUsersFromFirebase() {
+        async function loadPendingUsers() {
+            const list = document.getElementById('pending-users-list');
+            if (!list) return;
+            
             try {
-                if (!firebaseConnected) {
-                    return await getPendingUsers();
+                console.log('🔄 Memuat pending users...');
+                let users = [];
+                
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        const snapshot = await db.collection('users')
+                            .where('status', '==', 'pending')
+                            .get();
+                        
+                        snapshot.forEach(doc => {
+                            users.push(doc.data());
+                        });
+                        console.log(`📥 Loaded ${users.length} pending users from Firebase`);
+                    } catch (firebaseError) {
+                        console.warn('⚠️ Firebase read error:', firebaseError.message);
+                        users = await getPendingUsers();
+                    }
+                } else {
+                    users = await getPendingUsers();
                 }
                 
-                const db = firebase.firestore();
-                const snapshot = await db.collection('users')
-                    .where('status', '==', 'pending')
-                    .get();
+                if (users.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox text-2xl text-slate-300 mb-2 block"></i>
+                            <p class="text-slate-400">Tidak ada user yang menunggu verifikasi</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                for (const user of users) {
+                    // AMBIL FOTO LANGSUNG DARI FIRESTORE (property faces)
+                    let faceImages = [];
+                    if (user.faces) {
+                        for (const [type, url] of Object.entries(user.faces)) {
+                            faceImages.push({ type, url });
+                        }
+                    }
                     
-                const users = [];
-                snapshot.forEach(doc => {
-                    users.push(doc.data());
-                });
-                return users;
+                    html += `
+                        <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 mb-3 border border-slate-200 dark:border-slate-600">
+                            <div class="flex flex-wrap justify-between items-start gap-2">
+                                <div>
+                                    <p class="font-bold text-lg">${user.id}</p>
+                                    <p class="text-sm text-slate-500">${user.name || '-'}</p>
+                                    <p class="text-xs text-slate-400">Daftar: ${user.created_at ? new Date(user.created_at).toLocaleDateString('id-ID') : '-'}</p>
+                                    <p class="text-xs text-slate-400">Status: <span class="text-yellow-600 font-bold">⏳ Pending</span></p>
+                                    ${faceImages.length > 0 ? `<p class="text-xs text-green-500">✅ ${faceImages.length} foto wajah tersimpan di Firestore</p>` : '<p class="text-xs text-yellow-500">⚠️ Belum ada foto wajah</p>'}
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="verifyUser('${user.id}', true)" 
+                                            class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold transition">
+                                        <i class="fas fa-check mr-1"></i>Setujui
+                                    </button>
+                                    <button onclick="verifyUser('${user.id}', false)" 
+                                            class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition">
+                                        <i class="fas fa-times mr-1"></i>Tolak
+                                    </button>
+                                </div>
+                            </div>
+                            ${faceImages.length > 0 ? `
+                                <div class="flex gap-2 mt-3 overflow-x-auto pb-2">
+                                    ${faceImages.map(f => `
+                                        <img src="${f.url}" class="face-thumb" 
+                                             onclick="Swal.fire({ imageUrl: '${f.url}', imageWidth: 400, imageHeight: 400, title: 'Foto ${f.type}', confirmButtonColor: '#3085d6' })">
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+                list.innerHTML = html;
                 
             } catch (error) {
-                console.error('Error loading pending users:', error);
-                return await getPendingUsers();
+                console.error('❌ Error loading pending users:', error);
+                list.innerHTML = `
+                    <div class="text-center py-4 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2 block"></i>
+                        <p>Gagal memuat data</p>
+                        <button onclick="loadPendingUsers()" class="mt-2 px-4 py-1 bg-blue-500 text-white rounded text-sm">
+                            <i class="fas fa-sync mr-1"></i>Coba Lagi
+                        </button>
+                    </div>
+                `;
             }
         }
 
         // ============================================
-        // VERIFY USER IN FIREBASE
+        // VERIFY USER
         // ============================================
-        async function verifyUserInFirebase(userId, approve) {
+        async function verifyUser(userId, approve) {
             try {
-                const db = firebase.firestore();
-                const status = approve ? 'approved' : 'rejected';
-                await db.collection('users').doc(userId).update({
-                    status: status,
-                    updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log(`✅ User ${userId} ${status}`);
-                return true;
-            } catch (error) {
-                console.error('Error updating user status:', error);
-                return false;
-            }
-        }
-
-        // ============================================
-        // AUTO DELETE OLD DATA
-        // ============================================
-        async function autoDeleteOldData() {
-            try {
-                const retentionMonths = parseInt(localStorage.getItem('retention_months')) || 3;
-                if (retentionMonths === 0) return;
+                showLoading('Memproses...', approve ? 'Menyetujui user' : 'Menolak user');
                 
-                const cutoffDate = new Date();
-                cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
-                
-                const allData = await getAllAbsensi();
-                const oldData = allData.filter(item => {
-                    const itemDate = new Date(item.tanggal);
-                    return itemDate < cutoffDate;
-                });
-                
-                if (oldData.length === 0) return;
-                
-                let deleted = 0;
-                for (const item of oldData) {
-                    const tx = db_local.transaction(['absensi'], 'readwrite');
-                    const store = tx.objectStore('absensi');
-                    await new Promise((resolve, reject) => {
-                        const request = store.delete(item.id);
-                        request.onsuccess = () => { deleted++; resolve(); };
-                        request.onerror = () => reject(request.error);
+                if (firebaseConnected) {
+                    const db = firebase.firestore();
+                    const status = approve ? 'approved' : 'rejected';
+                    await db.collection('users').doc(userId).update({
+                        status: status,
+                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
                 
-                console.log(`🧹 Auto delete: ${deleted} data lama dihapus (retensi ${retentionMonths} bulan)`);
+                const user = await getUserById(userId);
+                if (user) {
+                    user.status = approve ? 'approved' : 'rejected';
+                    await updateUser(userId, user);
+                }
+                
+                hideLoading();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: approve ? '✅ User Disetujui' : '❌ User Ditolak',
+                    text: `User ${userId} ${approve ? 'telah diverifikasi' : 'ditolak'}`,
+                    confirmButtonColor: '#3085d6'
+                });
+                
+                await loadPendingUsers();
+                
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        const snapshot = await db.collection('users').get();
+                        document.getElementById('total-users').textContent = snapshot.size;
+                    } catch (error) {
+                        console.warn('Error updating user count:', error);
+                    }
+                }
                 
             } catch (error) {
-                console.error('Auto delete error:', error);
+                hideLoading();
+                console.error('Verify error:', error);
+                Swal.fire({ icon: 'error', title: 'Gagal', text: error.message });
             }
         }
 
+        // ============================================
+        // LOGIN FUNCTIONS
+        // ============================================
         let currentUser = null;
         let currentPosition = null;
         let isProcessing = false;
@@ -1478,144 +1566,6 @@
         let filteredAbsensiData = [];
         let resetTargetUser = null;
 
-        // Face registration state
-        let regStep = 0;
-        const regSteps = ['front', 'left', 'right', 'up', 'down'];
-        const regLabels = [
-            'Tengahkan wajah lurus ke kamera',
-            'Hadapkan wajah ke kiri (lihat ke kiri)',
-            'Hadapkan wajah ke kanan (lihat ke kanan)',
-            'Angkat wajah ke atas (lihat ke atas)',
-            'Turunkan wajah ke bawah (lihat ke bawah)'
-        ];
-        let capturedFaces = {};
-        let regVideo = null;
-        let regCanvas = null;
-        let regContext = null;
-
-        // ============================================
-        // OPTIMIZED IMAGE CAPTURE
-        // ============================================
-        function ambilFotoOptimasi(kualitas = CONFIG.IMAGE_QUALITY) {
-            const videoElement = video;
-            const canvasElement = canvas;
-            const ctx = context;
-            
-            const targetWidth = CONFIG.IMAGE_WIDTH;
-            const targetHeight = CONFIG.IMAGE_HEIGHT;
-            
-            canvasElement.width = targetWidth;
-            canvasElement.height = targetHeight;
-            
-            ctx.translate(canvasElement.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            
-            return canvasElement.toDataURL('image/jpeg', kualitas);
-        }
-
-        // ============================================
-        // FACE COMPARISON
-        // ============================================
-        function compareFaces(image1, image2) {
-            return new Promise((resolve) => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                const img1 = new Image();
-                const img2 = new Image();
-                
-                let loaded = 0;
-                
-                img1.onload = () => {
-                    loaded++;
-                    if (loaded === 2) processImages();
-                };
-                img2.onload = () => {
-                    loaded++;
-                    if (loaded === 2) processImages();
-                };
-                
-                img1.src = image1;
-                img2.src = image2;
-                
-                function processImages() {
-                    const size = 64;
-                    canvas.width = size;
-                    canvas.height = size;
-                    
-                    ctx.drawImage(img1, 0, 0, size, size);
-                    const data1 = ctx.getImageData(0, 0, size, size).data;
-                    
-                    ctx.clearRect(0, 0, size, size);
-                    ctx.drawImage(img2, 0, 0, size, size);
-                    const data2 = ctx.getImageData(0, 0, size, size).data;
-                    
-                    let mse = 0;
-                    let totalPixels = size * size;
-                    
-                    for (let i = 0; i < data1.length; i += 4) {
-                        const gray1 = (data1[i] + data1[i+1] + data1[i+2]) / 3;
-                        const gray2 = (data2[i] + data2[i+1] + data2[i+2]) / 3;
-                        const diff = gray1 - gray2;
-                        mse += diff * diff;
-                    }
-                    
-                    mse = mse / totalPixels;
-                    const similarity = 1 - (mse / (255 * 255));
-                    resolve(similarity);
-                }
-            });
-        }
-
-        async function verifyFace(photoData) {
-            if (!currentUser) return { match: false, score: 0 };
-            
-            try {
-                const faceData = await getFaceDataByUser(currentUser.id);
-                if (faceData.length === 0) {
-                    if (firebaseConnected) {
-                        try {
-                            const db = firebase.firestore();
-                            const doc = await db.collection('users').doc(currentUser.id).get();
-                            if (doc.exists) {
-                                const data = doc.data();
-                                if (data.faces) {
-                                    for (const [type, image] of Object.entries(data.faces)) {
-                                        await saveFaceData(currentUser.id, type, image);
-                                    }
-                                    return await verifyFace(photoData);
-                                }
-                            }
-                        } catch (e) {
-                            console.warn('Error fetching faces from Firebase:', e);
-                        }
-                    }
-                    return { match: false, score: 0, error: 'Tidak ada data wajah' };
-                }
-                
-                let bestMatch = 0;
-                for (const face of faceData) {
-                    const similarity = await compareFaces(photoData, face.image);
-                    if (similarity > bestMatch) {
-                        bestMatch = similarity;
-                    }
-                }
-                
-                const threshold = CONFIG.FACE_SIMILARITY_THRESHOLD;
-                const match = bestMatch >= threshold;
-                
-                return { match, score: bestMatch };
-                
-            } catch (error) {
-                console.error('Face verification error:', error);
-                return { match: false, score: 0, error: 'Error verifikasi' };
-            }
-        }
-
-        // ============================================
-        // LOGIN / SIGNUP
-        // ============================================
         function showLogin() {
             document.getElementById('login-form').classList.remove('hidden');
             document.getElementById('signup-form').classList.add('hidden');
@@ -1644,6 +1594,7 @@
             try {
                 let user = null;
                 
+                // Coba dari Firebase dulu
                 if (firebaseConnected) {
                     try {
                         const db = firebase.firestore();
@@ -1652,7 +1603,11 @@
                             const data = doc.data();
                             if (data.password === password) {
                                 user = data;
-                                await addUser(id, data.name, data.password, data.role || 'user', data.status);
+                                // Simpan ke local jika belum ada
+                                const localUser = await getUserById(id);
+                                if (!localUser) {
+                                    await addUser(id, data.name, data.password, data.role || 'user', data.status);
+                                }
                             }
                         }
                     } catch (e) {
@@ -1660,24 +1615,9 @@
                     }
                 }
                 
+                // Jika tidak ditemukan di Firebase, cari di local
                 if (!user) {
                     user = await findUser(id, password);
-                }
-                
-                if (!user && firebaseConnected) {
-                    try {
-                        const db = firebase.firestore();
-                        const doc = await db.collection('users').doc(id).get();
-                        if (doc.exists) {
-                            const data = doc.data();
-                            if (data.password === password) {
-                                user = data;
-                                await addUser(id, data.name, data.password, data.role || 'user', data.status);
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('Firebase sync error:', e);
-                    }
                 }
                 
                 if (user) {
@@ -1696,7 +1636,7 @@
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Terjadi kesalahan saat login' });
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Terjadi kesalahan saat login: ' + error.message });
             }
         });
 
@@ -1717,26 +1657,8 @@
                 
                 setTimeout(async () => {
                     await loadPendingUsers();
-                    
-                    if (firebaseConnected) {
-                        try {
-                            const db = firebase.firestore();
-                            const snapshot = await db.collection('users').get();
-                            const totalUsers = document.getElementById('total-users');
-                            if (totalUsers) {
-                                totalUsers.textContent = snapshot.size;
-                            }
-                            console.log(`📊 Total users: ${snapshot.size}`);
-                        } catch (error) {
-                            console.warn('Error loading user count:', error);
-                        }
-                    }
-                    
                     await loadUserList();
-                    
-                    // Load absensi dari Firebase untuk admin
                     await loadAllAbsensi();
-                    
                 }, 500);
             }
             
@@ -1797,76 +1719,22 @@
         }
 
         // ============================================
-        // GANTI PASSWORD ADMIN
+        // FACE REGISTRATION - TANPA STORAGE
         // ============================================
-        function showChangePassword() {
-            document.getElementById('change-password-modal').classList.remove('hidden');
-            document.getElementById('old-password').value = '';
-            document.getElementById('new-password-admin').value = '';
-            document.getElementById('confirm-password-admin').value = '';
-        }
+        let regStep = 0;
+        const regSteps = ['front', 'left', 'right', 'up', 'down'];
+        const regLabels = [
+            'Tengahkan wajah lurus ke kamera',
+            'Hadapkan wajah ke kiri (lihat ke kiri)',
+            'Hadapkan wajah ke kanan (lihat ke kanan)',
+            'Angkat wajah ke atas (lihat ke atas)',
+            'Turunkan wajah ke bawah (lihat ke bawah)'
+        ];
+        let capturedFaces = {};
+        let regVideo = null;
+        let regCanvas = null;
+        let regContext = null;
 
-        document.getElementById('change-password-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const oldPassword = document.getElementById('old-password').value.trim();
-            const newPassword = document.getElementById('new-password-admin').value.trim();
-            const confirmPassword = document.getElementById('confirm-password-admin').value.trim();
-            
-            if (!oldPassword || !newPassword || !confirmPassword) {
-                Swal.fire({ icon: 'warning', title: 'Lengkapi Data', text: 'Semua field harus diisi' });
-                return;
-            }
-            
-            if (newPassword.length < 4) {
-                Swal.fire({ icon: 'warning', title: 'Password Terlalu Pendek', text: 'Minimal 4 karakter' });
-                return;
-            }
-            
-            if (newPassword !== confirmPassword) {
-                Swal.fire({ icon: 'warning', title: 'Password Tidak Sama', text: 'Konfirmasi password harus sama' });
-                return;
-            }
-            
-            try {
-                const user = await getUserById('admin');
-                if (!user) {
-                    Swal.fire({ icon: 'error', title: 'User Admin Tidak Ditemukan' });
-                    return;
-                }
-                
-                if (user.password !== oldPassword) {
-                    Swal.fire({ icon: 'error', title: 'Password Lama Salah', text: 'Masukkan password lama yang benar' });
-                    return;
-                }
-                
-                user.password = newPassword;
-                await updateUser('admin', user);
-                
-                if (firebaseConnected) {
-                    try {
-                        const db = firebase.firestore();
-                        await db.collection('users').doc('admin').update({
-                            password: newPassword,
-                            updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    } catch (firebaseError) {
-                        console.warn('Firebase update error:', firebaseError);
-                    }
-                }
-                
-                closeModal('change-password-modal');
-                Swal.fire({ icon: 'success', title: '✅ Password Berhasil Diubah!' });
-                
-            } catch (error) {
-                console.error('Change password error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan saat mengganti password' });
-            }
-        });
-
-        // ============================================
-        // FACE REGISTRATION
-        // ============================================
         async function startFaceRegistration() {
             const id = document.getElementById('signup-id').value.trim();
             const name = document.getElementById('signup-name').value.trim();
@@ -1986,7 +1854,7 @@
         }
 
         // ============================================
-        // FINISH FACE REGISTRATION
+        // FINISH FACE REGISTRATION - TANPA STORAGE
         // ============================================
         async function finishFaceRegistration() {
             const { id, name, password } = window._signupData;
@@ -1994,29 +1862,36 @@
             try {
                 showLoading('Mendaftarkan akun...', 'Menyimpan data ke cloud');
                 
+                // 1. Simpan ke Local IndexedDB
                 await addUser(id, name, password, 'user', 'pending');
                 
+                // 2. Simpan face data ke Local
                 for (const [type, image] of Object.entries(capturedFaces)) {
                     await saveFaceData(id, type, image);
                 }
                 
+                // 3. SIMPAN KE FIRESTORE - LANGSUNG DENGAN FOTO (BASE64)
                 let firebaseSuccess = false;
                 if (firebaseConnected) {
                     try {
                         const db = firebase.firestore();
+                        
+                        // Data lengkap dengan foto langsung di Firestore
                         await db.collection('users').doc(id).set({
                             id: id,
                             name: name,
                             password: password,
                             role: 'user',
                             status: 'pending',
-                            faces: capturedFaces,
+                            faces: capturedFaces, // FOTO LANGSUNG DI FIRESTORE (BASE64)
                             created_at: new Date().toISOString(),
                             updated_at: firebase.firestore.FieldValue.serverTimestamp()
                         });
-                        firebaseSuccess = true;
-                        console.log('✅ User dan Foto berhasil disimpan ke Firestore');
                         
+                        firebaseSuccess = true;
+                        console.log('✅ User dan Foto berhasil disimpan ke Firestore (tanpa Storage)');
+                        
+                        // Update total users
                         const snapshot = await db.collection('users').get();
                         const totalUsersEl = document.getElementById('total-users');
                         if(totalUsersEl) totalUsersEl.textContent = snapshot.size;
@@ -2024,6 +1899,12 @@
                     } catch (firebaseError) {
                         console.warn('Firebase save error:', firebaseError);
                         firebaseSuccess = false;
+                        
+                        // Jika error quota, ubah ke mode offline
+                        if (firebaseError.message.includes('quota')) {
+                            firebaseConnected = false;
+                            document.getElementById('cloud-status-text').textContent = '⚠️ Offline Mode';
+                        }
                     }
                 }
                 
@@ -2039,6 +1920,7 @@
                     message += `<p class="text-green-600 text-xs mt-2">✅ Data tersimpan di cloud. Admin bisa melihat dari HP lain.</p>`;
                 } else {
                     message += `<p class="text-orange-500 text-xs mt-2">⚠️ Data tersimpan lokal. Admin tidak akan melihat sampai Anda online dan sync.</p>`;
+                    message += `<p class="text-orange-500 text-xs">💡 Klik tombol Sync di panel admin untuk mengirim data ke cloud.</p>`;
                 }
                 
                 Swal.fire({
@@ -2061,7 +1943,11 @@
             } catch (error) {
                 hideLoading();
                 console.error('Registration error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal Mendaftar', text: 'Terjadi kesalahan: ' + error.message });
+                Swal.fire({ 
+                    icon: 'error', 
+                    title: 'Gagal Mendaftar', 
+                    text: 'Terjadi kesalahan: ' + error.message 
+                });
             }
         }
 
@@ -2071,158 +1957,6 @@
                 regVideo.srcObject.getTracks().forEach(t => t.stop());
             }
             window._signupData = null;
-        }
-
-        // ============================================
-        // ADMIN - VERIFY PENDING USERS
-        // ============================================
-        async function showPendingUsers() {
-            document.getElementById('verify-modal').classList.remove('hidden');
-            await loadPendingUsers();
-        }
-
-        async function loadPendingUsers() {
-            const list = document.getElementById('pending-users-list');
-            if (!list) return;
-            
-            try {
-                console.log('🔄 Memuat pending users...');
-                let users = [];
-                
-                if (firebaseConnected) {
-                    try {
-                        const db = firebase.firestore();
-                        const snapshot = await db.collection('users')
-                            .where('status', '==', 'pending')
-                            .get();
-                        
-                        snapshot.forEach(doc => {
-                            users.push(doc.data());
-                        });
-                        console.log(`📥 Loaded ${users.length} pending users from Firebase`);
-                    } catch (firebaseError) {
-                        console.warn('⚠️ Firebase read error:', firebaseError.message);
-                        users = await getPendingUsers();
-                    }
-                } else {
-                    users = await getPendingUsers();
-                }
-                
-                if (users.length === 0) {
-                    list.innerHTML = `
-                        <div class="text-center py-4">
-                            <i class="fas fa-inbox text-2xl text-slate-300 mb-2 block"></i>
-                            <p class="text-slate-400">Tidak ada user yang menunggu verifikasi</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                let html = '';
-                for (const user of users) {
-                    let faceImages = [];
-                    if (user.faces) {
-                        for (const [type, url] of Object.entries(user.faces)) {
-                            faceImages.push({ type, url });
-                        }
-                    }
-                    
-                    html += `
-                        <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 mb-3 border border-slate-200 dark:border-slate-600">
-                            <div class="flex flex-wrap justify-between items-start gap-2">
-                                <div>
-                                    <p class="font-bold text-lg">${user.id}</p>
-                                    <p class="text-sm text-slate-500">${user.name || '-'}</p>
-                                    <p class="text-xs text-slate-400">Daftar: ${user.created_at ? new Date(user.created_at).toLocaleDateString('id-ID') : '-'}</p>
-                                    <p class="text-xs text-slate-400">Status: <span class="text-yellow-600 font-bold">⏳ Pending</span></p>
-                                    ${faceImages.length > 0 ? `<p class="text-xs text-green-500">✅ ${faceImages.length} foto wajah tersimpan</p>` : '<p class="text-xs text-yellow-500">⚠️ Belum ada foto wajah</p>'}
-                                </div>
-                                <div class="flex gap-2">
-                                    <button onclick="verifyUser('${user.id}', true)" 
-                                            class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold transition">
-                                        <i class="fas fa-check mr-1"></i>Setujui
-                                    </button>
-                                    <button onclick="verifyUser('${user.id}', false)" 
-                                            class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition">
-                                        <i class="fas fa-times mr-1"></i>Tolak
-                                    </button>
-                                </div>
-                            </div>
-                            ${faceImages.length > 0 ? `
-                                <div class="flex gap-2 mt-3 overflow-x-auto pb-2">
-                                    ${faceImages.map(f => `
-                                        <img src="${f.url}" class="w-16 h-16 rounded-lg object-cover border-2 border-white shadow" 
-                                             onclick="Swal.fire({ imageUrl: '${f.url}', imageWidth: 400, imageHeight: 400, title: 'Foto ${f.type}', confirmButtonColor: '#3085d6' })">
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }
-                list.innerHTML = html;
-                
-            } catch (error) {
-                console.error('❌ Error loading pending users:', error);
-                list.innerHTML = `
-                    <div class="text-center py-4 text-red-500">
-                        <i class="fas fa-exclamation-triangle text-2xl mb-2 block"></i>
-                        <p>Gagal memuat data</p>
-                        <button onclick="loadPendingUsers()" class="mt-2 px-4 py-1 bg-blue-500 text-white rounded text-sm">
-                            <i class="fas fa-sync mr-1"></i>Coba Lagi
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
-        // ============================================
-        // VERIFY USER
-        // ============================================
-        async function verifyUser(userId, approve) {
-            try {
-                showLoading('Memproses...', approve ? 'Menyetujui user' : 'Menolak user');
-                
-                if (firebaseConnected) {
-                    const db = firebase.firestore();
-                    const status = approve ? 'approved' : 'rejected';
-                    await db.collection('users').doc(userId).update({
-                        status: status,
-                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-                
-                const user = await getUserById(userId);
-                if (user) {
-                    user.status = approve ? 'approved' : 'rejected';
-                    await updateUser(userId, user);
-                }
-                
-                hideLoading();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: approve ? '✅ User Disetujui' : '❌ User Ditolak',
-                    text: `User ${userId} ${approve ? 'telah diverifikasi' : 'ditolak'}`,
-                    confirmButtonColor: '#3085d6'
-                });
-                
-                await loadPendingUsers();
-                
-                if (firebaseConnected) {
-                    try {
-                        const db = firebase.firestore();
-                        const snapshot = await db.collection('users').get();
-                        document.getElementById('total-users').textContent = snapshot.size;
-                    } catch (error) {
-                        console.warn('Error updating user count:', error);
-                    }
-                }
-                
-            } catch (error) {
-                hideLoading();
-                console.error('Verify error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal', text: error.message });
-            }
         }
 
         // ============================================
@@ -2287,6 +2021,9 @@
                     const statusColor = user.status === 'approved' ? 'text-green-600' :
                                        user.status === 'pending' ? 'text-yellow-600' : 'text-red-600';
                     
+                    // Cek apakah user punya foto
+                    const hasFaces = user.faces && Object.keys(user.faces).length > 0;
+                    
                     html += `
                         <div class="flex flex-wrap items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg gap-2">
                             <div class="flex items-center gap-2 flex-wrap">
@@ -2296,6 +2033,7 @@
                                     ${isAdmin ? '👑 Admin' : '👤 User'}
                                 </span>
                                 <span class="text-xs ${statusColor}">${statusBadge} ${user.status}</span>
+                                ${hasFaces ? '<span class="text-xs text-green-500">📸</span>' : ''}
                             </div>
                             <div class="flex gap-1">
                                 ${!isDefault ? `
@@ -2320,10 +2058,6 @@
                 console.error('Error loading users:', error);
                 list.innerHTML = '<p class="text-center text-red-500 py-2">Gagal memuat data</p>';
             }
-        }
-
-        function filterUserList() {
-            loadUserList();
         }
 
         function showResetPassword(userId) {
@@ -2414,7 +2148,7 @@
         }
 
         // ============================================
-        // ADMIN - SEMUA ABSENSI - DIPERBAIKI
+        // ADMIN - SEMUA ABSENSI
         // ============================================
         async function showAllAbsensi() {
             document.getElementById('all-absensi-modal').classList.remove('hidden');
@@ -2423,7 +2157,6 @@
 
         async function loadAllAbsensi() {
             try {
-                // Ambil dari Firebase dulu
                 if (firebaseConnected) {
                     try {
                         const db = firebase.firestore();
@@ -2448,7 +2181,6 @@
                     }
                 }
                 
-                // Fallback ke local
                 allAbsensiData = await getAllAbsensi();
                 allAbsensiData.sort((a, b) => b.id - a.id);
                 filteredAbsensiData = [...allAbsensiData];
@@ -2527,7 +2259,7 @@
         }
 
         // ============================================
-        // ADMIN - EXPORT EXCEL - DIPERBAIKI
+        // ADMIN - EXPORT EXCEL
         // ============================================
         function showExportModal() {
             document.getElementById('export-modal').classList.remove('hidden');
@@ -2566,7 +2298,6 @@
             const dateTo = document.getElementById('export-date-to').value;
             const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
             
-            // Ambil data terbaru
             let data = [];
             if (firebaseConnected) {
                 try {
@@ -2636,7 +2367,6 @@
                 
                 let data = [];
                 
-                // Ambil data dari Firebase
                 if (firebaseConnected) {
                     try {
                         const db = firebase.firestore();
@@ -2653,7 +2383,6 @@
                         snapshot.forEach(doc => {
                             data.push(doc.data());
                         });
-                        console.log(`📥 Loaded ${data.length} absensi from Firebase for export`);
                     } catch (e) {
                         console.warn('Firebase export error, fallback to local:', e);
                         data = await getAllAbsensi();
@@ -2730,7 +2459,7 @@
                 Swal.fire({
                     icon: 'success',
                     title: 'Export Berhasil!',
-                    text: `${data.length} data berhasil diexport ke ${filename}`,
+                    text: `${data.length} data berhasil diexport`,
                     confirmButtonColor: '#3085d6'
                 });
                 
@@ -2752,8 +2481,6 @@
             document.getElementById('setting-retention').value = localStorage.getItem('retention_months') || 3;
             document.getElementById('setting-face-threshold').value = Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100);
         }
-
-        // UpdateSetting sudah didefinisikan di atas (dengan penyimpanan permanen)
 
         async function runCleanupNow() {
             const result = await Swal.fire({
@@ -2886,52 +2613,163 @@
         };
 
         // ============================================
-        // CHECK FIRESTORE DATA
+        // AUTO DELETE OLD DATA
         // ============================================
-        async function checkFirestoreData() {
-            console.log('🔍 MENGECEK DATA DI FIRESTORE...');
-            
-            if (!firebaseConnected) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Firebase Offline',
-                    text: 'Tidak bisa mengecek data. Pastikan koneksi internet aktif.',
-                    confirmButtonColor: '#f39c12'
-                });
-                return;
-            }
-            
+        async function autoDeleteOldData() {
             try {
-                const db = firebase.firestore();
+                const retentionMonths = parseInt(localStorage.getItem('retention_months')) || 3;
+                if (retentionMonths === 0) return;
                 
-                const usersSnapshot = await db.collection('users').get();
-                const absensiSnapshot = await db.collection('absensi').get();
+                const cutoffDate = new Date();
+                cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
                 
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Data di Firebase',
-                    html: `
-                        <div class="text-left">
-                            <p><b>Total Users:</b> ${usersSnapshot.size}</p>
-                            <p><b>Total Absensi:</b> ${absensiSnapshot.size}</p>
-                            <p class="text-xs text-slate-400 mt-2">Cek console (F12) untuk detail</p>
-                        </div>
-                    `,
-                    confirmButtonColor: '#3085d6'
+                const allData = await getAllAbsensi();
+                const oldData = allData.filter(item => {
+                    const itemDate = new Date(item.tanggal);
+                    return itemDate < cutoffDate;
                 });
                 
-                await loadPendingUsers();
-                await loadUserList();
-                await loadAllAbsensi();
+                if (oldData.length === 0) return;
+                
+                let deleted = 0;
+                for (const item of oldData) {
+                    const tx = db_local.transaction(['absensi'], 'readwrite');
+                    const store = tx.objectStore('absensi');
+                    await new Promise((resolve, reject) => {
+                        const request = store.delete(item.id);
+                        request.onsuccess = () => { deleted++; resolve(); };
+                        request.onerror = () => reject(request.error);
+                    });
+                }
+                
+                console.log(`🧹 Auto delete: ${deleted} data lama dihapus (retensi ${retentionMonths} bulan)`);
                 
             } catch (error) {
-                console.error('❌ Error checking Firestore:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal Cek Data',
-                    text: error.message,
-                    confirmButtonColor: '#d33'
-                });
+                console.error('Auto delete error:', error);
+            }
+        }
+
+        // ============================================
+        // OPTIMIZED IMAGE CAPTURE
+        // ============================================
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        function ambilFotoOptimasi(kualitas = CONFIG.IMAGE_QUALITY) {
+            const videoElement = video;
+            const canvasElement = canvas;
+            const ctx = context;
+            
+            const targetWidth = CONFIG.IMAGE_WIDTH;
+            const targetHeight = CONFIG.IMAGE_HEIGHT;
+            
+            canvasElement.width = targetWidth;
+            canvasElement.height = targetHeight;
+            
+            ctx.translate(canvasElement.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(videoElement, 0, 0, targetWidth, targetHeight);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            return canvasElement.toDataURL('image/jpeg', kualitas);
+        }
+
+        // ============================================
+        // FACE COMPARISON
+        // ============================================
+        function compareFaces(image1, image2) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img1 = new Image();
+                const img2 = new Image();
+                
+                let loaded = 0;
+                
+                img1.onload = () => {
+                    loaded++;
+                    if (loaded === 2) processImages();
+                };
+                img2.onload = () => {
+                    loaded++;
+                    if (loaded === 2) processImages();
+                };
+                
+                img1.src = image1;
+                img2.src = image2;
+                
+                function processImages() {
+                    const size = 64;
+                    canvas.width = size;
+                    canvas.height = size;
+                    
+                    ctx.drawImage(img1, 0, 0, size, size);
+                    const data1 = ctx.getImageData(0, 0, size, size).data;
+                    
+                    ctx.clearRect(0, 0, size, size);
+                    ctx.drawImage(img2, 0, 0, size, size);
+                    const data2 = ctx.getImageData(0, 0, size, size).data;
+                    
+                    let mse = 0;
+                    let totalPixels = size * size;
+                    
+                    for (let i = 0; i < data1.length; i += 4) {
+                        const gray1 = (data1[i] + data1[i+1] + data1[i+2]) / 3;
+                        const gray2 = (data2[i] + data2[i+1] + data2[i+2]) / 3;
+                        const diff = gray1 - gray2;
+                        mse += diff * diff;
+                    }
+                    
+                    mse = mse / totalPixels;
+                    const similarity = 1 - (mse / (255 * 255));
+                    resolve(similarity);
+                }
+            });
+        }
+
+        async function verifyFace(photoData) {
+            if (!currentUser) return { match: false, score: 0 };
+            
+            try {
+                const faceData = await getFaceDataByUser(currentUser.id);
+                if (faceData.length === 0) {
+                    if (firebaseConnected) {
+                        try {
+                            const db = firebase.firestore();
+                            const doc = await db.collection('users').doc(currentUser.id).get();
+                            if (doc.exists) {
+                                const data = doc.data();
+                                if (data.faces) {
+                                    for (const [type, image] of Object.entries(data.faces)) {
+                                        await saveFaceData(currentUser.id, type, image);
+                                    }
+                                    return await verifyFace(photoData);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Error fetching faces from Firebase:', e);
+                        }
+                    }
+                    return { match: false, score: 0, error: 'Tidak ada data wajah' };
+                }
+                
+                let bestMatch = 0;
+                for (const face of faceData) {
+                    const similarity = await compareFaces(photoData, face.image);
+                    if (similarity > bestMatch) {
+                        bestMatch = similarity;
+                    }
+                }
+                
+                const threshold = CONFIG.FACE_SIMILARITY_THRESHOLD;
+                const match = bestMatch >= threshold;
+                
+                return { match, score: bestMatch };
+                
+            } catch (error) {
+                console.error('Face verification error:', error);
+                return { match: false, score: 0, error: 'Error verifikasi' };
             }
         }
 
@@ -3027,10 +2865,6 @@
         // ============================================
         // KAMERA
         // ============================================
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-
         function initCamera() {
             navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -3061,7 +2895,7 @@
         updateClock();
 
         // ============================================
-        // PROSES ABSEN - DIPERBAIKI (SIMPAN KE FIREBASE)
+        // PROSES ABSEN
         // ============================================
         function showLoading(text, subtext) {
             document.getElementById('loading-overlay').classList.remove('hidden');
@@ -3240,10 +3074,7 @@
                         is_audit: faceScore < 0.6
                     };
 
-                    // Simpan ke Local IndexedDB
                     await saveAbsensi(data);
-                    
-                    // Simpan ke Firebase
                     await saveAbsensiToFirebase(data);
 
                     hideLoading();
@@ -3327,10 +3158,8 @@
 
         async function loadUserLog() {
             try {
-                // Ambil dari lokal dulu
                 let data = await getAbsensiByUser(currentUser.id);
                 
-                // Jika ada Firebase, sync tambahan
                 if (firebaseConnected) {
                     try {
                         const db = firebase.firestore();
@@ -3345,7 +3174,6 @@
                             firebaseData.push(doc.data());
                         });
                         
-                        // Gabungkan dan deduplikasi
                         const allData = [...data, ...firebaseData];
                         const uniqueData = [];
                         const seen = new Set();
@@ -3409,8 +3237,6 @@
         async function init() {
             try {
                 await initDatabase();
-                
-                // Load config dari database
                 await loadConfigFromDB();
                 
                 const users = await getUsers();
@@ -3449,9 +3275,10 @@
                     await loadUsersFromFirebase();
                 }
                 
-                console.log('📍 SISTEM ABSENSI - FIREBASE ONLINE');
-                console.log(`📡 Firebase: ${firebaseConnected ? '✅ ONLINE' : '❌ OFFLINE'}`);
+                console.log('📍 SISTEM ABSENSI - SIAP PAKAI');
+                console.log(`📡 Firebase: ${firebaseConnected ? '✅ ONLINE' : '⚠️ OFFLINE (Data Lokal)'}`);
                 console.log('✅ Sistem siap!');
+                console.log('📌 Default Admin: admin / admin123');
                 
             } catch (error) {
                 console.error('Init error:', error);
@@ -3467,8 +3294,7 @@
         init();
 
         console.log('📌 Default Admin: admin / admin123');
-        console.log('📌 Semua fungsi lengkap!');
-        console.log('📌 Data tersimpan di Firebase Cloud');
+        console.log('📌 Sistem menggunakan Firestore (tanpa Storage) - GRATIS!');
     </script>
 </body>
 </html>
