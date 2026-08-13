@@ -3314,6 +3314,46 @@ async function showPendingUsers() {
         Swal.fire({ icon: 'error', title: 'Error', text: error.message });
     }
 }
+    
+<!-- 1. KODE HTML MODAL VERIFIKASI (Tambahkan ini sebelum <script>) -->
+    <div id="modal-verifikasi" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="relative p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-lg font-bold text-gray-900">Verifikasi User</h3>
+                <button onclick="document.getElementById('modal-verifikasi').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
+            </div>
+            
+            <div class="mt-4" id="pending-users-list">
+                <p class="text-sm text-gray-500 text-center">Memuat data user yang belum diverifikasi...</p>
+            </div>
+            
+            <div class="mt-4 flex justify-end">
+                <button onclick="document.getElementById('modal-verifikasi').classList.add('hidden')" class="px-4 py-2 bg-gray-500 text-white rounded-md">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. TAG SCRIPT -->
+    <script>
+        // Fungsi untuk membuka modal/halaman Verifikasi User
+        async function showPendingUsers() {
+            try {
+                const modal = document.getElementById('modal-verifikasi');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Modal verifikasi tidak ditemukan!' });
+                    return;
+                }
+
+                // Jika Anda punya fungsi untuk ambil data user dari Firebase/Local, panggil di sini
+                // contoh: await loadPendingUsersData();
+
+            } catch (error) {
+                console.error('Error saat membuka verifikasi:', error);
+                Swal.fire({ icon: 'error', title: 'Error', text: error.message });
+            }
+        }
     </script>
 </body>
 </html>
