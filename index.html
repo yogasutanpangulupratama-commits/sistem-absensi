@@ -218,6 +218,7 @@
                 <div id="firebase-status" class="mt-3 connection-status checking">
                     <span class="status-dot checking" id="firebase-dot"></span>
                     <span id="firebase-status-text">⏳ Mengecek koneksi Firebase...</span>
+		    <span id="offline-mode-badge" class="hidden text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Offline</span>
                 </div>
                 
                 <button onclick="retryFirebaseConnection()" 
@@ -874,88 +875,60 @@
         // CEK KONEKSI FIREBASE - DENGAN ERROR HANDLING
         // ============================================
         async function checkFirebaseConnection() {
-            const statusEl = document.getElementById('firebase-status');
-            const dotEl = document.getElementById('firebase-dot');
-            const textEl = document.getElementById('firebase-status-text');
-            const retryBtn = document.getElementById('btn-retry-firebase');
-            const offlineBadge = document.getElementById('offline-mode-badge');
-            
-            if (!firebaseInitialized) {
-                statusEl.className = 'connection-status offline';
-                dotEl.className = 'status-dot offline';
-                textEl.textContent = '❌ Firebase SDK Error: ' + (firebaseError || 'Unknown');
-                retryBtn.classList.remove('hidden');
-                firebaseConnected = false;
-                offlineBadge.classList.remove('hidden');
-                return false;
-            }
+    const statusEl = document.getElementById('firebase-status');
+    const dotEl = document.getElementById('firebase-dot');
+    const textEl = document.getElementById('firebase-status-text');
+    const retryBtn = document.getElementById('btn-retry-firebase');
+    const offlineBadge = document.getElementById('offline-mode-badge');
+    
+    // Pengecekan awal jika SDK Firebase belum siap
+    if (!firebaseInitialized) {
+        if (statusEl) statusEl.className = 'connection-status offline';
+        if (dotEl) dotEl.className = 'status-dot offline';
+        if (textEl) textEl.textContent = '❌ Firebase SDK Error: ' + (firebaseError || 'Unknown');
+        if (retryBtn) retryBtn.classList.remove('hidden');
+        if (offlineBadge) offlineBadge.classList.remove('hidden');
+        firebaseConnected = false;
+        return false;
+    }
 
-            try {
-                const db = firebase.firestore();
-                // Try to write a test document
-                const testRef = db.collection('_test').doc('connection_test');
-                await testRef.set({ 
-                    test: true, 
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp() 
-                });
-                await testRef.delete();
-                
-                statusEl.className = 'connection-status online';
-                dotEl.className = 'status-dot online';
-                textEl.textContent = '✅ Firebase Terhubung (Online)';
-                retryBtn.classList.add('hidden');
-                offlineBadge.classList.add('hidden');
-                firebaseConnected = true;
-                
-                document.getElementById('cloud-status-text').textContent = '✅ Terkoneksi';
-                console.log('✅ Firebase connection: ONLINE');
-                
-                if (currentUser && currentUser.role === 'admin') {
-                    setTimeout(async () => {
-                        await loadPendingUsers();
-                        await loadUserList();
-                    }, 1000);
-                }
-                
-                return true;
-                
-            } catch (error) {
-                console.warn('⚠️ Firebase connection failed:', error.message);
-                firebaseError = error.message;
-                
-                let errorMessage = '❌ Firebase Tidak Terhubung';
-                if (error.message.includes('permission')) {
-                    errorMessage = '❌ Permission Denied - Cek Firestore Rules';
-                } else if (error.message.includes('network')) {
-                    errorMessage = '❌ No Internet Connection';
-                } else if (error.message.includes('Firestore')) {
-                    errorMessage = '❌ Firestore Not Enabled';
-                } else if (error.message.includes('quota')) {
-                    errorMessage = '⚠️ Quota Exceeded - Mode Offline';
-                }
-                
-                statusEl.className = 'connection-status offline';
-                dotEl.className = 'status-dot offline';
-                textEl.textContent = errorMessage;
-                retryBtn.classList.remove('hidden');
-                offlineBadge.classList.remove('hidden');
-                firebaseConnected = false;
-                
-                document.getElementById('cloud-status-text').textContent = '⚠️ Offline Mode';
-                console.log('⚠️ Running in OFFLINE mode - data saved locally');
-                
-                // Show offline notification
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Mode Offline Aktif',
-                    text: 'Firebase tidak terhubung. Data akan disimpan secara lokal dan disinkronkan saat koneksi kembali.',
-                    confirmButtonColor: '#f39c12',
-                    timer: 3000
-                });
-                
-                return false;
-            }
-        }
+    try {
+        const db = firebase.firestore();
+        // Coba tulis & hapus data kecil untuk tes koneksi nyata
+        const testRef = db.collection('_test').doc('connection_test');
+        await testRef.set({ test: true, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+        await testRef.delete();
+        
+        // Jika berhasil
+        if (statusEl) statusEl.className = 'connection-status online';
+        if (dotEl) dotEl.className = 'status-dot online';
+        if (textEl) textEl.textContent = '✅ Firebase Terhubung (Online)';
+        if (retryBtn) retryBtn.classList.add('hidden');
+        if (offlineBadge) offlineBadge.classList.add('hidden');
+        firebaseConnected = true;
+        
+        const cloudStatus = document.getElementById('cloud-status-text');
+        if (cloudStatus) cloudStatus.textContent = '✅ Terkoneksi';
+        
+        return true;
+    } catch (error) {
+        // Jika gagal/offline
+        console.warn('⚠️ Firebase connection failed:', error.message);
+        firebaseError = error.message;
+        
+        if (statusEl) statusEl.className = 'connection-status offline';
+        if (dotEl) dotEl.className = 'status-dot offline';
+        if (textEl) textEl.textContent = '❌ Firebase Tidak Terhubung / Mode Offline';
+        if (retryBtn) retryBtn.classList.remove('hidden');
+        if (offlineBadge) offlineBadge.classList.remove('hidden');
+        firebaseConnected = false;
+        
+        const cloudStatus = document.getElementById('cloud-status-text');
+        if (cloudStatus) cloudStatus.textContent = '⚠️ Offline Mode';
+        
+        return false;
+    }
+}
 
         function retryFirebaseConnection() {
             const btn = document.getElementById('btn-retry-firebase');
@@ -1817,41 +1790,37 @@
         }
 
         function captureFace() {
-            if (!regVideo) return;
-            
-            const canvas = regCanvas;
-            const context = regContext;
-            const targetWidth = CONFIG.IMAGE_WIDTH;
-            const targetHeight = CONFIG.IMAGE_HEIGHT;
-            
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-            context.translate(canvas.width, 0);
-            context.scale(-1, 1);
-            context.drawImage(regVideo, 0, 0, targetWidth, targetHeight);
-            context.setTransform(1, 0, 0, 1, 0, 0);
-            
-            const imageData = canvas.toDataURL('image/jpeg', 0.4);
-            const stepName = regSteps[regStep];
-            capturedFaces[stepName] = imageData;
-            
-            const dot = document.getElementById(`step-dot-${regStep+1}`);
-            dot.className = 'w-3 h-3 rounded-full bg-green-500';
-            
-            const videoEl = regVideo;
-            videoEl.style.transition = 'filter 0.1s';
-            videoEl.style.filter = 'brightness(2)';
-            setTimeout(() => {
-                videoEl.style.filter = 'brightness(1)';
-            }, 200);
-            
-            regStep++;
-            if (regStep < regSteps.length) {
-                updateRegStep();
-            } else {
-                finishFaceRegistration();
-            }
-        }
+    if (!regVideo) return;
+    
+    const canvas = regCanvas;
+    const context = regContext;
+    
+    // Resolusi diperkecil khusus untuk kebutuhan simpan di database
+    const targetWidth = 160; 
+    const targetHeight = 120;
+    
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    context.translate(canvas.width, 0);
+    context.scale(-1, 1);
+    context.drawImage(regVideo, 0, 0, targetWidth, targetHeight);
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    
+    // Angka 0.3 artinya kualitas gambar dikompresi hingga 30% (Sangat hemat memori)
+    const imageData = canvas.toDataURL('image/jpeg', 0.3);
+    const stepName = regSteps[regStep];
+    capturedFaces[stepName] = imageData;
+    
+    const dot = document.getElementById(`step-dot-${regStep+1}`);
+    if (dot) dot.className = 'w-3 h-3 rounded-full bg-green-500';
+    
+    regStep++;
+    if (regStep < regSteps.length) {
+        updateRegStep();
+    } else {
+        finishFaceRegistration();
+    }
+}
 
         // ============================================
         // FINISH FACE REGISTRATION - TANPA STORAGE
@@ -2156,42 +2125,37 @@
         }
 
         async function loadAllAbsensi() {
+    try {
+        if (firebaseConnected) {
             try {
-                if (firebaseConnected) {
-                    try {
-                        const db = firebase.firestore();
-                        const snapshot = await db.collection('absensi')
-                            .orderBy('timestamp', 'desc')
-                            .limit(1000)
-                            .get();
-                        
-                        const absensi = [];
-                        snapshot.forEach(doc => {
-                            absensi.push(doc.data());
-                        });
-                        
-                        if (absensi.length > 0) {
-                            allAbsensiData = absensi;
-                            filteredAbsensiData = [...allAbsensiData];
-                            renderAdminTable();
-                            return;
-                        }
-                    } catch (e) {
-                        console.warn('Firebase absensi read error:', e);
-                    }
-                }
+                const db = firebase.firestore();
+                // Ambil data absensi tanpa perintah .orderBy() yang memicu error
+                const snapshot = await db.collection('absensi').limit(1000).get();
                 
-                allAbsensiData = await getAllAbsensi();
-                allAbsensiData.sort((a, b) => b.id - a.id);
+                const absensi = [];
+                snapshot.forEach(doc => absensi.push(doc.data()));
+                
+                // Urutkan data berdasarkan waktu terbaru secara manual
+                absensi.sort((a, b) => new Date(b.timestamp || b.waktu) - new Date(a.timestamp || a.waktu));
+                
+                allAbsensiData = absensi;
                 filteredAbsensiData = [...allAbsensiData];
                 renderAdminTable();
-                
-            } catch (error) {
-                console.error('Error loading absensi:', error);
-                document.getElementById('all-absensi-body').innerHTML = 
-                    '<tr><td colspan="9" class="text-center py-4 text-red-500">Gagal memuat data</td></tr>';
+                return;
+            } catch (e) {
+                console.warn('Firebase absensi read error:', e);
             }
         }
+        
+        // Mode cadangan jika sedang offline
+        allAbsensiData = await getAllAbsensi();
+        allAbsensiData.sort((a, b) => b.id - a.id);
+        filteredAbsensiData = [...allAbsensiData];
+        renderAdminTable();
+    } catch (error) {
+        console.error('Error loading absensi:', error);
+    }
+}
 
         function filterAdminAbsensi() {
             const search = document.getElementById('admin-search-user').value.toLowerCase();
@@ -2358,117 +2322,147 @@
         document.getElementById('export-user-filter').addEventListener('input', updateExportPreview);
 
         async function exportToExcel() {
+    try {
+        showLoading('Mempersiapkan export...', 'Mengambil data dari server...');
+        
+        const dateFrom = document.getElementById('export-date-from')?.value;
+        const dateTo = document.getElementById('export-date-to')?.value;
+        const userFilter = document.getElementById('export-user-filter')?.value.trim().toLowerCase();
+        
+        let data = [];
+        
+        // 1. AMBIL DATA (Firestore / Fallback Local DB)
+        if (firebaseConnected) {
             try {
-                showLoading('Mempersiapkan export...', 'Mengambil data');
+                const db = firebase.firestore();
+                let query = db.collection('absensi');
                 
-                const dateFrom = document.getElementById('export-date-from').value;
-                const dateTo = document.getElementById('export-date-to').value;
-                const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
+                if (dateFrom) query = query.where('tanggal', '>=', dateFrom);
+                if (dateTo) query = query.where('tanggal', '<=', dateTo);
                 
-                let data = [];
-                
-                if (firebaseConnected) {
-                    try {
-                        const db = firebase.firestore();
-                        let query = db.collection('absensi');
-                        
-                        if (dateFrom) {
-                            query = query.where('tanggal', '>=', dateFrom);
-                        }
-                        if (dateTo) {
-                            query = query.where('tanggal', '<=', dateTo);
-                        }
-                        
-                        const snapshot = await query.orderBy('timestamp', 'desc').limit(5000).get();
-                        snapshot.forEach(doc => {
-                            data.push(doc.data());
-                        });
-                    } catch (e) {
-                        console.warn('Firebase export error, fallback to local:', e);
-                        data = await getAllAbsensi();
-                    }
-                } else {
-                    data = await getAllAbsensi();
-                }
-                
-                if (dateFrom && dateTo) {
-                    data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
-                } else if (dateFrom) {
-                    data = data.filter(item => item.tanggal >= dateFrom);
-                } else if (dateTo) {
-                    data = data.filter(item => item.tanggal <= dateTo);
-                }
-                
-                if (userFilter) {
-                    data = data.filter(item => 
-                        item.user_id.toLowerCase().includes(userFilter) ||
-                        (item.user_name && item.user_name.toLowerCase().includes(userFilter))
-                    );
-                }
-                
-                hideLoading();
-                
-                if (data.length === 0) {
-                    Swal.fire({ icon: 'info', title: 'Tidak Ada Data', text: 'Tidak ada data sesuai filter' });
-                    return;
-                }
-                
-                const excelData = data.map((item, index) => ({
-                    'No': index + 1,
-                    'ID Karyawan': item.user_id,
-                    'Nama': item.user_name || '-',
-                    'Tanggal': item.tanggal,
-                    'Jam': item.waktu,
-                    'Jenis Absen': item.jenis_absen === 'masuk' ? 'Masuk' : 'Pulang',
-                    'Status': item.status,
-                    'Face Score': item.face_score ? Math.round(item.face_score * 100) + '%' : '-',
-                    'Jarak (meter)': item.jarak,
-                    'Latitude': item.lat || '-',
-                    'Longitude': item.lng || '-'
-                }));
-                
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.json_to_sheet(excelData);
-                XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
-                
-                const colWidths = [
-                    { wch: 5 }, { wch: 15 }, { wch: 20 }, { wch: 12 },
-                    { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
-                    { wch: 12 }, { wch: 15 }, { wch: 15 }
-                ];
-                ws['!cols'] = colWidths;
-                
-                let filename = 'Absensi';
-                if (dateFrom && dateTo) {
-                    filename += `_${dateFrom}_sampai_${dateTo}`;
-                } else if (dateFrom) {
-                    filename += `_dari_${dateFrom}`;
-                } else if (dateTo) {
-                    filename += `_sampai_${dateTo}`;
-                } else {
-                    filename += `_${new Date().toISOString().split('T')[0]}`;
-                }
-                if (userFilter) {
-                    filename += `_${userFilter}`;
-                }
-                filename += '.xlsx';
-                
-                XLSX.writeFile(wb, filename);
-                closeModal('export-modal');
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Export Berhasil!',
-                    text: `${data.length} data berhasil diexport`,
-                    confirmButtonColor: '#3085d6'
-                });
-                
-            } catch (error) {
-                hideLoading();
-                console.error('Export error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal Export', text: 'Terjadi kesalahan: ' + error.message });
+                // PENTING: Pengurutan dilakukan di client-side untuk menghindari 
+                // error 'Missing Composite Index' pada Firestore saat filter tanggal aktif.
+                const snapshot = await query.limit(5000).get();
+                snapshot.forEach(doc => data.push(doc.data()));
+            } catch (e) {
+                console.warn('Firebase export error, fallback ke database lokal:', e);
+                data = await getAllAbsensi();
             }
+        } else {
+            data = await getAllAbsensi();
         }
+        
+        // 2. FILTER TANGGAL (Client-Side Safeguard)
+        if (dateFrom || dateTo) {
+            data = data.filter(item => {
+                if (!item.tanggal) return false;
+                if (dateFrom && item.tanggal < dateFrom) return false;
+                if (dateTo && item.tanggal > dateTo) return false;
+                return true;
+            });
+        }
+        
+        // 3. FILTER USER ID / NAMA (Null-safe)
+        if (userFilter) {
+            data = data.filter(item => {
+                const userId = (item.user_id || '').toLowerCase();
+                const userName = (item.user_name || '').toLowerCase();
+                return userId.includes(userFilter) || userName.includes(userFilter);
+            });
+        }
+        
+        // VALIDASI JIKA DATA KOSONG
+        if (data.length === 0) {
+            hideLoading();
+            Swal.fire({
+                icon: 'info',
+                title: 'Tidak Ada Data',
+                text: 'Tidak ada data absensi yang sesuai dengan filter.'
+            });
+            return;
+        }
+        
+        showLoading('Mempersiapkan export...', 'Memproses file Excel...');
+        
+        // 4. PENGURUTAN DATA TERBARU DI ATAS (Client-side Sorting)
+        data.sort((a, b) => {
+            const getMillis = (val) => {
+                if (!val) return 0;
+                if (val.seconds) return val.seconds * 1000; // Firebase Timestamp
+                return new Date(val).getTime() || 0;
+            };
+            return getMillis(b.timestamp) - getMillis(a.timestamp);
+        });
+        
+        // 5. MAPPING DATA KE FORMAT COLUMNS EXCEL
+        const excelData = data.map((item, index) => ({
+            'No': index + 1,
+            'ID Karyawan': item.user_id || '-',
+            'Nama': item.user_name || '-',
+            'Tanggal': item.tanggal || '-',
+            'Jam': item.waktu || '-',
+            'Jenis Absen': item.jenis_absen ? (item.jenis_absen.toLowerCase() === 'masuk' ? 'Masuk' : 'Pulang') : '-',
+            'Status': item.status || '-',
+            'Face Score': (typeof item.face_score === 'number') ? Math.round(item.face_score * 100) + '%' : '-',
+            'Jarak (meter)': (item.jarak !== undefined && item.jarak !== null) ? item.jarak : '-',
+            'Latitude': item.lat || '-',
+            'Longitude': item.lng || '-'
+        }));
+        
+        // 6. GENERATE EXCEL VIA SHEETJS
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        
+        // Pengaturan Lebar Kolom Auto/Manual
+        ws['!cols'] = [
+            { wch: 5 },  // No
+            { wch: 15 }, // ID Karyawan
+            { wch: 22 }, // Nama
+            { wch: 14 }, // Tanggal
+            { wch: 10 }, // Jam
+            { wch: 12 }, // Jenis Absen
+            { wch: 14 }, // Status
+            { wch: 12 }, // Face Score
+            { wch: 14 }, // Jarak (meter)
+            { wch: 15 }, // Latitude
+            { wch: 15 }  // Longitude
+        ];
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
+        
+        // 7. PENAMAAN FILE DENGAN SANITASI STRING
+        let filename = 'Absensi';
+        if (dateFrom && dateTo) filename += `_${dateFrom}_sampai_${dateTo}`;
+        else if (dateFrom) filename += `_dari_${dateFrom}`;
+        else if (dateTo) filename += `_sampai_${dateTo}`;
+        else filename += `_${new Date().toISOString().split('T')[0]}`;
+        
+        if (userFilter) filename += `_${userFilter.replace(/[^a-z0-9]/gi, '_')}`;
+        filename += '.xlsx';
+        
+        // 8. DOWNLOAD FILE & TUTUP MODAL
+        XLSX.writeFile(wb, filename);
+        
+        hideLoading();
+        closeModal('export-modal');
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Export Berhasil!',
+            text: `${data.length} data berhasil diexport ke Excel.`,
+            confirmButtonColor: '#3085d6'
+        });
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Export error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal Export',
+            text: 'Terjadi kesalahan: ' + error.message
+        });
+    }
+}
 
         // ============================================
         // ADMIN - SETTINGS
@@ -3232,13 +3226,17 @@
         }
 
         // ============================================
-        // INIT
+        // INIT (VERSI PERBAIKAN)
         // ============================================
         async function init() {
             try {
                 await initDatabase();
                 await loadConfigFromDB();
                 
+                // 1. Cek koneksi Firebase LEBIH AWAL agar status online/offline dipastikan dulu
+                await checkFirebaseConnection();
+                
+                // 2. Cek & Buat akun Admin jika belum ada
                 const users = await getUsers();
                 const adminExists = users.some(u => u.id === 'admin');
                 if (!adminExists) {
@@ -3263,14 +3261,15 @@
                     }
                 }
                 
+                // 3. Atur retensi data
                 const retention = localStorage.getItem('retention_months');
                 if (!retention) {
                     localStorage.setItem('retention_months', '3');
                 }
                 
                 await autoDeleteOldData();
-                await checkFirebaseConnection();
                 
+                // 4. Jika terhubung, muat data user dari Firebase
                 if (firebaseConnected) {
                     await loadUsersFromFirebase();
                 }
