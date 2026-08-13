@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Absensi - Firebase Online</title>
+    <title>Sistem Absensi - Firebase Full</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <!-- ========================================== -->
-    <!-- FIREBASE SDK (CDN) -->
-    <!-- ========================================== -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
     <style>
-        * { -webkit-tap-highlight-color: transparent; }
+        /* ============================================
+           ALL STYLES - LENGKAP
+           ============================================ */
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         
+        /* Loading Spinner */
         .loader {
             border-top-color: #3498db;
             animation: spinner 0.6s linear infinite;
@@ -28,6 +30,16 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* GPS Pulse */
+        .gps-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* Login Background */
         .login-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -39,6 +51,7 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
 
+        /* Status Badge */
         .status-badge {
             padding: 2px 10px;
             border-radius: 20px;
@@ -49,6 +62,7 @@
         .status-approved { background: #34d399; color: #064e3b; }
         .status-rejected { background: #f87171; color: #7f1d1d; }
 
+        /* Mini Map */
         .mini-map {
             background: #1a1a2e;
             border-radius: 12px;
@@ -90,6 +104,7 @@
             height: 80%;
         }
 
+        /* Face Guide */
         .face-guide {
             position: absolute;
             inset: 10%;
@@ -110,6 +125,7 @@
             margin-bottom: 8px;
         }
 
+        /* Date Range */
         .date-range-group {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
@@ -126,6 +142,7 @@
             }
         }
 
+        /* Animations */
         .fade-in {
             animation: fadeIn 0.3s ease-in;
         }
@@ -134,24 +151,27 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Dark Mode */
         @media (prefers-color-scheme: dark) {
             .glass { background: rgba(30,41,59,0.95); }
             body { background: #0f172a; }
         }
+
+        /* Scrollbar */
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
 
-        /* Status Koneksi */
+        /* Connection Status */
         .connection-status {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
+            gap: 8px;
+            padding: 6px 14px;
             border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
+            font-size: 12px;
+            font-weight: 600;
         }
         .connection-status.online { background: #d1fae5; color: #065f46; }
         .connection-status.offline { background: #fee2e2; color: #991b1b; }
@@ -159,8 +179,8 @@
         
         .status-dot {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
         }
         .status-dot.online { background: #22c55e; }
@@ -168,6 +188,7 @@
         .status-dot.checking { background: #f59e0b; animation: pulse-dot 1s ease-in-out infinite; }
         @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
+        /* Sync Status */
         .sync-status {
             display: inline-flex;
             align-items: center;
@@ -186,7 +207,7 @@
 <body>
 
     <!-- ========================================== -->
-    <!-- PAGE LOGIN -->
+    <!-- PAGE LOGIN - LENGKAP -->
     <!-- ========================================== -->
     <div id="login-page" class="login-bg flex items-center justify-center p-4">
         <div class="glass w-full max-w-md p-8">
@@ -197,11 +218,16 @@
                 <h1 class="text-2xl font-bold text-slate-800 dark:text-white">📍 Absensi Geofencing</h1>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Dengan Verifikasi Wajah</p>
                 
-                <!-- Status Firebase Connection -->
-                <div id="firebase-status" class="mt-3 inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-700">
+                <div id="firebase-status" class="mt-3 connection-status checking">
                     <span class="status-dot checking" id="firebase-dot"></span>
-                    <span id="firebase-status-text">Mengecek koneksi Firebase...</span>
+                    <span id="firebase-status-text">⏳ Mengecek koneksi Firebase...</span>
                 </div>
+                
+                <button onclick="retryFirebaseConnection()" 
+                        class="mt-2 text-xs text-blue-600 hover:text-blue-800 underline hidden" 
+                        id="btn-retry-firebase">
+                    <i class="fas fa-sync mr-1"></i>Coba Ulang Koneksi
+                </button>
             </div>
 
             <div class="flex gap-2 mb-4">
@@ -263,10 +289,9 @@
                         class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold transition-all transform hover:scale-[1.02]">
                     <i class="fas fa-camera mr-2"></i>Daftar dengan Verifikasi Wajah
                 </button>
-                <p class="text-xs text-slate-400 text-center">* Pendaftaran akan di-review oleh Admin</p>
+                <p class="text-xs text-slate-400 text-center">* Data tersimpan di cloud, admin bisa lihat dari mana saja</p>
             </form>
 
-            <!-- Kosongkan - Tidak ada tulisan default admin -->
             <div class="mt-4 text-center">
                 <!-- Kosong -->
             </div>
@@ -325,7 +350,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- MAIN APP -->
+    <!-- MAIN APP - FULL -->
     <!-- ========================================== -->
     <div id="main-app" class="hidden min-h-screen bg-slate-100 dark:bg-slate-900">
         
@@ -365,10 +390,10 @@
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-3 text-white">
                     <h3 class="font-bold text-sm"><i class="fas fa-crown mr-2"></i>Panel Admin</h3>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-2">
                     <button onclick="showPendingUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-user-clock text-yellow-600 text-xl block mb-1"></i>
-                        Verifikasi
+                        Verifikasi User
                     </button>
                     <button onclick="showManageUsers()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
                         <i class="fas fa-users text-blue-600 text-xl block mb-1"></i>
@@ -390,10 +415,6 @@
                         <i class="fas fa-cloud-upload-alt text-indigo-600 text-xl block mb-1"></i>
                         Sync ke Cloud
                     </button>
-                    <button onclick="showChangePassword()" class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border hover:shadow-md transition text-sm">
-                        <i class="fas fa-key text-red-600 text-xl block mb-1"></i>
-                        Ganti Password
-                    </button>
                 </div>
             </div>
 
@@ -401,7 +422,7 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 mb-4">
                 <div class="flex flex-wrap justify-between items-center gap-2">
                     <div class="flex items-center gap-2">
-                        <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span id="gps-status" class="w-3 h-3 rounded-full bg-red-500 gps-pulse"></span>
                         <span id="gps-text" class="text-sm font-medium">Mencari GPS...</span>
                     </div>
                     <div class="text-right">
@@ -437,6 +458,18 @@
                 <p class="text-xs text-slate-400 mt-1" id="user-status-text">Akun Anda sedang menunggu persetujuan admin</p>
             </div>
 
+            <!-- Status Cloud -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-3 mb-4 text-xs">
+                <div class="flex justify-between items-center">
+                    <span><i class="fas fa-cloud mr-1"></i> Cloud Status:</span>
+                    <span id="cloud-status-text">✅ Terkoneksi</span>
+                </div>
+                <div class="flex justify-between items-center mt-1">
+                    <span><i class="fas fa-users mr-1"></i> User Terdaftar:</span>
+                    <span id="total-users">0</span>
+                </div>
+            </div>
+
             <!-- Kamera -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg overflow-hidden mb-4">
                 <div class="p-3 bg-slate-50 dark:bg-slate-700 border-b flex justify-between items-center">
@@ -469,27 +502,7 @@
                 </button>
             </div>
 
-            <!-- Info Storage & Cloud -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-3 mb-4 text-xs">
-                <div class="flex justify-between items-center">
-                    <span><i class="fas fa-database mr-1"></i> Penyimpanan Data:</span>
-                    <span id="storage-info">Memuat...</span>
-                </div>
-                <div class="flex justify-between items-center mt-1">
-                    <span><i class="fas fa-clock mr-1"></i> Data dihapus otomatis:</span>
-                    <span id="retention-info">3 bulan</span>
-                </div>
-                <div class="flex justify-between items-center mt-1">
-                    <span><i class="fas fa-cloud mr-1"></i> Cloud Status:</span>
-                    <span id="cloud-status">🔍 Mengecek...</span>
-                </div>
-                <div class="flex justify-between items-center mt-1">
-                    <span><i class="fas fa-wifi mr-1"></i> Koneksi:</span>
-                    <span id="connection-status-text">🟢 Online</span>
-                </div>
-            </div>
-
-            <!-- Filter & Search -->
+            <!-- Filter & Search (User) -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-3 mb-4">
                 <div class="flex flex-wrap gap-2">
                     <div class="flex-1 min-w-[150px]">
@@ -521,296 +534,296 @@
                 </div>
             </div>
         </main>
+    </div>
 
-        <!-- ========================================== -->
-        <!-- MODALS -->
-        <!-- ========================================== -->
+    <!-- ========================================== -->
+    <!-- MODALS - SEMUA LENGKAP -->
+    <!-- ========================================== -->
 
-        <!-- Modal Verifikasi User -->
-        <div id="verify-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                <div class="p-4 border-b flex justify-between items-center">
-                    <h3 class="font-bold"><i class="fas fa-user-clock mr-2"></i>Verifikasi Pendaftaran</h3>
-                    <button onclick="closeModal('verify-modal')" class="text-slate-500 hover:text-slate-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
-                    <div id="pending-users-list" class="space-y-3">
-                        <p class="text-center text-slate-400 py-4">Memuat...</p>
-                    </div>
+    <!-- Modal Verifikasi User -->
+    <div id="verify-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="font-bold"><i class="fas fa-user-clock mr-2"></i>Verifikasi Pendaftaran</h3>
+                <button onclick="closeModal('verify-modal')" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
+                <div id="pending-users-list" class="space-y-3">
+                    <p class="text-center text-slate-400 py-4">Memuat...</p>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Modal Kelola User -->
-        <div id="user-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                <div class="p-4 border-b flex justify-between items-center">
-                    <h3 class="font-bold"><i class="fas fa-users mr-2"></i>Kelola User</h3>
-                    <button onclick="closeModal('user-modal')" class="text-slate-500 hover:text-slate-700">
-                        <i class="fas fa-times"></i>
-                    </button>
+    <!-- Modal Kelola User -->
+    <div id="user-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="font-bold"><i class="fas fa-users mr-2"></i>Kelola User</h3>
+                <button onclick="closeModal('user-modal')" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
+                <div class="mb-3">
+                    <input type="text" id="search-user" placeholder="Cari user..." 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
+                           oninput="loadUserList()">
                 </div>
-                <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
-                    <div class="mb-3">
-                        <input type="text" id="search-user" placeholder="Cari user..." 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
-                               oninput="loadUserList()">
-                    </div>
-                    <div id="user-list" class="space-y-2">
-                        <p class="text-center text-sm text-slate-400 py-2">Memuat...</p>
-                    </div>
+                <div id="user-list" class="space-y-2">
+                    <p class="text-center text-sm text-slate-400 py-2">Memuat...</p>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Modal Semua Absensi -->
-        <div id="all-absensi-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                <div class="p-4 border-b flex justify-between items-center">
-                    <h3 class="font-bold"><i class="fas fa-database mr-2"></i>Semua Data Absensi</h3>
-                    <button onclick="closeModal('all-absensi-modal')" class="text-slate-500 hover:text-slate-700">
-                        <i class="fas fa-times"></i>
+    <!-- Modal Semua Absensi -->
+    <div id="all-absensi-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="font-bold"><i class="fas fa-database mr-2"></i>Semua Data Absensi</h3>
+                <button onclick="closeModal('all-absensi-modal')" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <input type="text" id="admin-search-user" placeholder="Cari ID/Nama..." 
+                           class="flex-1 min-w-[120px] px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                           oninput="filterAdminAbsensi()">
+                    <input type="date" id="admin-filter-date" 
+                           class="px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                           onchange="filterAdminAbsensi()">
+                    <select id="admin-filter-status" class="px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                            onchange="filterAdminAbsensi()">
+                        <option value="">Semua Status</option>
+                        <option value="Tepat Waktu">Tepat Waktu</option>
+                        <option value="Terlambat">Terlambat</option>
+                        <option value="Sesuai Jadwal">Sesuai Jadwal</option>
+                        <option value="Wajah Tidak Cocok">Wajah Tidak Cocok</option>
+                    </select>
+                    <button onclick="resetAdminFilter()" class="px-4 py-2 bg-slate-500 text-white rounded-lg text-sm font-bold hover:bg-slate-600">
+                        <i class="fas fa-undo mr-1"></i>Reset
                     </button>
                 </div>
-                <div class="p-4 overflow-y-auto max-h-[70vh] custom-scroll">
-                    <div class="flex flex-wrap gap-2 mb-4">
-                        <input type="text" id="admin-search-user" placeholder="Cari ID/Nama..." 
-                               class="flex-1 min-w-[120px] px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
-                               oninput="filterAdminAbsensi()">
-                        <input type="date" id="admin-filter-date" 
-                               class="px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
-                               onchange="filterAdminAbsensi()">
-                        <select id="admin-filter-status" class="px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
-                                onchange="filterAdminAbsensi()">
-                            <option value="">Semua Status</option>
-                            <option value="Tepat Waktu">Tepat Waktu</option>
-                            <option value="Terlambat">Terlambat</option>
-                            <option value="Sesuai Jadwal">Sesuai Jadwal</option>
-                            <option value="Wajah Tidak Cocok">Wajah Tidak Cocok</option>
-                        </select>
-                        <button onclick="resetAdminFilter()" class="px-4 py-2 bg-slate-500 text-white rounded-lg text-sm font-bold hover:bg-slate-600">
-                            <i class="fas fa-undo mr-1"></i>Reset
-                        </button>
-                    </div>
-                    
-                    <div id="all-absensi-container" class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-slate-100 dark:bg-slate-700">
-                                <tr>
-                                    <th class="p-2 text-left">No</th>
-                                    <th class="p-2 text-left">ID</th>
-                                    <th class="p-2 text-left">Nama</th>
-                                    <th class="p-2 text-left">Tanggal</th>
-                                    <th class="p-2 text-left">Jam</th>
-                                    <th class="p-2 text-left">Jenis</th>
-                                    <th class="p-2 text-left">Status</th>
-                                    <th class="p-2 text-left">Face Score</th>
-                                    <th class="p-2 text-left">Jarak</th>
-                                </tr>
-                            </thead>
-                            <tbody id="all-absensi-body">
-                                <tr>
-                                    <td colspan="9" class="text-center py-4 text-slate-400">Belum ada data</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-2 text-xs text-slate-400">
-                        Total: <span id="admin-total-count">0</span> data
-                    </div>
+                
+                <div id="all-absensi-container" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100 dark:bg-slate-700">
+                            <tr>
+                                <th class="p-2 text-left">No</th>
+                                <th class="p-2 text-left">ID</th>
+                                <th class="p-2 text-left">Nama</th>
+                                <th class="p-2 text-left">Tanggal</th>
+                                <th class="p-2 text-left">Jam</th>
+                                <th class="p-2 text-left">Jenis</th>
+                                <th class="p-2 text-left">Status</th>
+                                <th class="p-2 text-left">Face Score</th>
+                                <th class="p-2 text-left">Jarak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-absensi-body">
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-slate-400">Belum ada data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-2 text-xs text-slate-400">
+                    Total: <span id="admin-total-count">0</span> data
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Modal Export Excel -->
-        <div id="export-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-lg"><i class="fas fa-file-excel text-emerald-600 mr-2"></i>Export Excel</h3>
-                    <button onclick="closeModal('export-modal')" class="text-slate-500 hover:text-slate-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            <i class="fas fa-calendar-alt mr-2"></i>Rentang Tanggal
-                        </label>
-                        <div class="date-range-group">
-                            <div>
-                                <input type="date" id="export-date-from" 
-                                       class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
-                                <p class="text-xs text-slate-400 mt-1">Tanggal Mulai</p>
-                            </div>
-                            <span class="range-label text-slate-400 font-bold">s/d</span>
-                            <div>
-                                <input type="date" id="export-date-to" 
-                                       class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
-                                <p class="text-xs text-slate-400 mt-1">Tanggal Selesai</p>
-                            </div>
+    <!-- Modal Export Excel -->
+    <div id="export-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg"><i class="fas fa-file-excel text-emerald-600 mr-2"></i>Export Excel</h3>
+                <button onclick="closeModal('export-modal')" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        <i class="fas fa-calendar-alt mr-2"></i>Rentang Tanggal
+                    </label>
+                    <div class="date-range-group">
+                        <div>
+                            <input type="date" id="export-date-from" 
+                                   class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                            <p class="text-xs text-slate-400 mt-1">Tanggal Mulai</p>
                         </div>
-                        <div class="mt-2 flex gap-2 flex-wrap">
-                            <button onclick="setQuickDate('today')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Hari Ini</button>
-                            <button onclick="setQuickDate('week')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Minggu Ini</button>
-                            <button onclick="setQuickDate('month')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Bulan Ini</button>
-                            <button onclick="setQuickDate('all')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Semua Data</button>
+                        <span class="range-label text-slate-400 font-bold">s/d</span>
+                        <div>
+                            <input type="date" id="export-date-to" 
+                                   class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                            <p class="text-xs text-slate-400 mt-1">Tanggal Selesai</p>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            <i class="fas fa-user mr-2"></i>Filter User (Opsional)
-                        </label>
-                        <input type="text" id="export-user-filter" placeholder="Cari ID atau Nama..." 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                    <div class="mt-2 flex gap-2 flex-wrap">
+                        <button onclick="setQuickDate('today')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Hari Ini</button>
+                        <button onclick="setQuickDate('week')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Minggu Ini</button>
+                        <button onclick="setQuickDate('month')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Bulan Ini</button>
+                        <button onclick="setQuickDate('all')" class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-200 transition">Semua Data</button>
                     </div>
-                    <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-sm">
-                        <p class="text-slate-600 dark:text-slate-300">
-                            <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                            Data akan diexport ke format <b>.xlsx</b>
-                        </p>
-                        <p class="text-xs text-slate-400 mt-1" id="export-preview">0 data akan diexport</p>
-                        <p class="text-xs text-slate-400" id="export-date-range">Rentang: -</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="exportToExcel()" 
-                                class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition">
-                            <i class="fas fa-download mr-2"></i>Download Excel
-                        </button>
-                        <button onclick="closeModal('export-modal')" 
-                                class="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-bold transition">
-                            Batal
-                        </button>
-                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <i class="fas fa-user mr-2"></i>Filter User (Opsional)
+                    </label>
+                    <input type="text" id="export-user-filter" placeholder="Cari ID atau Nama..." 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600">
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-sm">
+                    <p class="text-slate-600 dark:text-slate-300">
+                        <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                        Data akan diexport ke format <b>.xlsx</b>
+                    </p>
+                    <p class="text-xs text-slate-400 mt-1" id="export-preview">0 data akan diexport</p>
+                    <p class="text-xs text-slate-400" id="export-date-range">Rentang: -</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="exportToExcel()" 
+                            class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition">
+                        <i class="fas fa-download mr-2"></i>Download Excel
+                    </button>
+                    <button onclick="closeModal('export-modal')" 
+                            class="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-bold transition">
+                        Batal
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Modal Reset Password User -->
-        <div id="reset-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
-                <h3 class="font-bold text-lg mb-4"><i class="fas fa-key mr-2"></i>Reset Password User</h3>
-                <p class="text-sm text-slate-500 mb-4" id="reset-user-info">User: -</p>
-                <form id="reset-password-form">
-                    <input type="password" id="reset-new-password" placeholder="Password Baru" 
-                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600 mb-3" required>
-                    <input type="password" id="reset-confirm-password" placeholder="Konfirmasi Password" 
-                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600 mb-3" required>
-                    <div class="flex gap-2">
-                        <button type="submit" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
-                            <i class="fas fa-save mr-1"></i>Simpan
-                        </button>
-                        <button type="button" onclick="closeModal('reset-password-modal')" 
-                                class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
-                            Batal
-                        </button>
-                    </div>
-                </form>
-            </div>
+    <!-- Modal Reset Password User -->
+    <div id="reset-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
+            <h3 class="font-bold text-lg mb-4"><i class="fas fa-key mr-2"></i>Reset Password User</h3>
+            <p class="text-sm text-slate-500 mb-4" id="reset-user-info">User: -</p>
+            <form id="reset-password-form">
+                <input type="password" id="reset-new-password" placeholder="Password Baru" 
+                       class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600 mb-3" required>
+                <input type="password" id="reset-confirm-password" placeholder="Konfirmasi Password" 
+                       class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600 mb-3" required>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
+                        <i class="fas fa-save mr-1"></i>Simpan
+                    </button>
+                    <button type="button" onclick="closeModal('reset-password-modal')" 
+                            class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
+                        Batal
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <!-- Modal Ganti Password Admin -->
-        <div id="change-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-lg"><i class="fas fa-key text-red-600 mr-2"></i>Ganti Password Admin</h3>
-                    <button onclick="closeModal('change-password-modal')" class="text-slate-500 hover:text-slate-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <p class="text-sm text-slate-500 mb-4">Masukkan password lama dan password baru Anda</p>
-                <form id="change-password-form">
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            <i class="fas fa-lock mr-2"></i>Password Lama
-                        </label>
-                        <input type="password" id="old-password" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
-                               placeholder="Masukkan password lama" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            <i class="fas fa-lock mr-2"></i>Password Baru
-                        </label>
-                        <input type="password" id="new-password-admin" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
-                               placeholder="Minimal 4 karakter" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            <i class="fas fa-lock mr-2"></i>Konfirmasi Password Baru
-                        </label>
-                        <input type="password" id="confirm-password-admin" 
-                               class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
-                               placeholder="Konfirmasi password baru" required>
-                    </div>
-                    <div class="flex gap-2">
-                        <button type="submit" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
-                            <i class="fas fa-save mr-1"></i>Ganti Password
-                        </button>
-                        <button type="button" onclick="closeModal('change-password-modal')" 
-                                class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
-                            Batal
-                        </button>
-                    </div>
-                </form>
+    <!-- Modal Ganti Password Admin -->
+    <div id="change-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg"><i class="fas fa-key text-red-600 mr-2"></i>Ganti Password Admin</h3>
+                <button onclick="closeModal('change-password-modal')" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
+            <p class="text-sm text-slate-500 mb-4">Masukkan password lama dan password baru Anda</p>
+            <form id="change-password-form">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <i class="fas fa-lock mr-2"></i>Password Lama
+                    </label>
+                    <input type="password" id="old-password" 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                           placeholder="Masukkan password lama" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <i class="fas fa-lock mr-2"></i>Password Baru
+                    </label>
+                    <input type="password" id="new-password-admin" 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                           placeholder="Minimal 4 karakter" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <i class="fas fa-lock mr-2"></i>Konfirmasi Password Baru
+                    </label>
+                    <input type="password" id="confirm-password-admin" 
+                           class="w-full px-3 py-2 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                           placeholder="Konfirmasi password baru" required>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
+                        <i class="fas fa-save mr-1"></i>Ganti Password
+                    </button>
+                    <button type="button" onclick="closeModal('change-password-modal')" 
+                            class="flex-1 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg text-sm font-bold">
+                        Batal
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <!-- Modal Pengaturan -->
-        <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold"><i class="fas fa-cog mr-2"></i>Pengaturan</h3>
-                    <button onclick="closeModal('settings-modal')" class="text-slate-500 hover:text-slate-700">
-                        <i class="fas fa-times"></i>
-                    </button>
+    <!-- Modal Pengaturan -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold"><i class="fas fa-cog mr-2"></i>Pengaturan</h3>
+                <button onclick="closeModal('settings-modal')" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <label class="text-sm font-semibold block">Radius Absensi (meter)</label>
+                    <input type="number" id="setting-radius" class="w-full px-3 py-2 rounded-lg border text-sm" value="20">
+                    <button onclick="updateSetting('radius')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
                 </div>
-                <div class="space-y-3">
-                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
-                        <label class="text-sm font-semibold block">Radius Absensi (meter)</label>
-                        <input type="number" id="setting-radius" class="w-full px-3 py-2 rounded-lg border text-sm" value="20">
-                        <button onclick="updateSetting('radius')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
-                    </div>
-                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
-                        <label class="text-sm font-semibold block">Jam Masuk Maksimal</label>
-                        <input type="time" id="setting-masuk" class="w-full px-3 py-2 rounded-lg border text-sm" value="08:00">
-                        <button onclick="updateSetting('masuk')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
-                    </div>
-                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
-                        <label class="text-sm font-semibold block">Jam Pulang Minimal</label>
-                        <input type="time" id="setting-pulang" class="w-full px-3 py-2 rounded-lg border text-sm" value="16:00">
-                        <button onclick="updateSetting('pulang')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
-                    </div>
-                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
-                        <label class="text-sm font-semibold block">
-                            <i class="fas fa-clock mr-2"></i>Hapus Data Otomatis (bulan)
-                        </label>
-                        <select id="setting-retention" class="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-700">
-                            <option value="1">1 Bulan</option>
-                            <option value="2">2 Bulan</option>
-                            <option value="3" selected>3 Bulan</option>
-                            <option value="6">6 Bulan</option>
-                            <option value="12">1 Tahun</option>
-                            <option value="0">Tidak Pernah</option>
-                        </select>
-                        <button onclick="updateSetting('retention')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
-                    </div>
-                    <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
-                        <label class="text-sm font-semibold block">
-                            <i class="fas fa-user-check mr-2"></i>Face Match Threshold (%)
-                        </label>
-                        <input type="number" id="setting-face-threshold" class="w-full px-3 py-2 rounded-lg border text-sm" value="60" min="30" max="90">
-                        <button onclick="updateSetting('face_threshold')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
-                    </div>
-                    <button onclick="runCleanupNow()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
-                        <i class="fas fa-broom mr-1"></i>Bersihkan Data Lama Sekarang
-                    </button>
-                    <button onclick="resetAllData()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
-                        <i class="fas fa-trash mr-1"></i>Reset Semua Data
-                    </button>
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <label class="text-sm font-semibold block">Jam Masuk Maksimal</label>
+                    <input type="time" id="setting-masuk" class="w-full px-3 py-2 rounded-lg border text-sm" value="08:00">
+                    <button onclick="updateSetting('masuk')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
                 </div>
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <label class="text-sm font-semibold block">Jam Pulang Minimal</label>
+                    <input type="time" id="setting-pulang" class="w-full px-3 py-2 rounded-lg border text-sm" value="16:00">
+                    <button onclick="updateSetting('pulang')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                </div>
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <label class="text-sm font-semibold block">
+                        <i class="fas fa-clock mr-2"></i>Hapus Data Otomatis (bulan)
+                    </label>
+                    <select id="setting-retention" class="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-700">
+                        <option value="1">1 Bulan</option>
+                        <option value="2">2 Bulan</option>
+                        <option value="3" selected>3 Bulan</option>
+                        <option value="6">6 Bulan</option>
+                        <option value="12">1 Tahun</option>
+                        <option value="0">Tidak Pernah</option>
+                    </select>
+                    <button onclick="updateSetting('retention')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                </div>
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <label class="text-sm font-semibold block">
+                        <i class="fas fa-user-check mr-2"></i>Face Match Threshold (%)
+                    </label>
+                    <input type="number" id="setting-face-threshold" class="w-full px-3 py-2 rounded-lg border text-sm" value="60" min="30" max="90">
+                    <button onclick="updateSetting('face_threshold')" class="mt-2 px-4 py-1 bg-purple-600 text-white rounded-lg text-sm">Update</button>
+                </div>
+                <button onclick="runCleanupNow()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
+                    <i class="fas fa-broom mr-1"></i>Bersihkan Data Lama Sekarang
+                </button>
+                <button onclick="resetAllData()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
+                    <i class="fas fa-trash mr-1"></i>Reset Semua Data
+                </button>
             </div>
         </div>
     </div>
@@ -827,11 +840,11 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- JAVASCRIPT - FIREBASE TERINTEGRASI -->
+    <!-- JAVASCRIPT - LENGKAP -->
     <!-- ========================================== -->
     <script>
         // ============================================
-        // 1. FIREBASE CONFIGURATION (DARI KODE ANDA)
+        // FIREBASE CONFIGURATION
         // ============================================
         const firebaseConfig = {
             apiKey: "AIzaSyAGHTvVTBGOcEPCBd3hVhNABa1_Lj95cZU",
@@ -844,90 +857,108 @@
         };
 
         // ============================================
-        // 2. INIT FIREBASE
+        // INIT FIREBASE
         // ============================================
-        console.log('🔥 MENGINISIALISASI FIREBASE...');
-        console.log('📁 Project ID:', firebaseConfig.projectId);
-        
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+        let firebaseConnected = false;
+        let firebaseInitialized = false;
 
-        console.log('✅ Firebase initialized successfully!');
+        try {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            const storage = firebase.storage();
+            firebaseInitialized = true;
+            console.log('✅ Firebase SDK initialized');
+        } catch (error) {
+            console.error('❌ Firebase init error:', error);
+            firebaseInitialized = false;
+        }
 
         // ============================================
-        // 3. CEK KONEKSI FIREBASE (ONLINE/OFFLINE)
+        // CEK KONEKSI FIREBASE
         // ============================================
         async function checkFirebaseConnection() {
-            const statusDot = document.getElementById('firebase-dot');
-            const statusText = document.getElementById('firebase-status-text');
+            const statusEl = document.getElementById('firebase-status');
+            const dotEl = document.getElementById('firebase-dot');
+            const textEl = document.getElementById('firebase-status-text');
+            const retryBtn = document.getElementById('btn-retry-firebase');
             
+            if (!firebaseInitialized) {
+                statusEl.className = 'connection-status offline';
+                dotEl.className = 'status-dot offline';
+                textEl.textContent = '❌ Firebase SDK Error';
+                retryBtn.classList.remove('hidden');
+                firebaseConnected = false;
+                document.getElementById('cloud-status-text').textContent = '❌ Error';
+                return false;
+            }
+
             try {
-                // Coba baca 1 dokumen untuk test koneksi
-                await db.collection('_test').doc('_test').set({ 
+                const db = firebase.firestore();
+                await db.collection('_test').doc('test').set({ 
                     test: true, 
                     timestamp: firebase.firestore.FieldValue.serverTimestamp() 
                 });
-                await db.collection('_test').doc('_test').delete();
+                await db.collection('_test').doc('test').delete();
                 
-                // Koneksi BERHASIL
-                statusDot.className = 'status-dot online';
-                statusText.textContent = '✅ Firebase Terhubung (Online)';
+                statusEl.className = 'connection-status online';
+                dotEl.className = 'status-dot online';
+                textEl.textContent = '✅ Firebase Terhubung (Online)';
+                retryBtn.classList.add('hidden');
+                firebaseConnected = true;
+                document.getElementById('cloud-status-text').textContent = '✅ Terkoneksi';
                 console.log('✅ Firebase connection: ONLINE');
-                
-                // Update status di UI
-                document.getElementById('connection-status-text').innerHTML = '🟢 Online';
-                document.getElementById('cloud-status').textContent = '✅ Terkoneksi';
-                
                 return true;
                 
             } catch (error) {
-                console.warn('⚠️ Firebase connection error:', error);
+                console.warn('⚠️ Firebase connection failed:', error.message);
+                let errorMessage = '❌ Firebase Tidak Terhubung';
+                if (error.message.includes('permission')) {
+                    errorMessage = '❌ Permission Denied - Cek Firestore Rules';
+                } else if (error.message.includes('network')) {
+                    errorMessage = '❌ No Internet Connection';
+                } else if (error.message.includes('Firestore')) {
+                    errorMessage = '❌ Firestore Not Enabled';
+                }
                 
-                // Koneksi GAGAL
-                statusDot.className = 'status-dot offline';
-                statusText.textContent = '❌ Firebase Tidak Terhubung (Offline)';
-                document.getElementById('connection-status-text').innerHTML = '🔴 Offline';
-                document.getElementById('cloud-status').textContent = '⚠️ Tidak terhubung';
-                
+                statusEl.className = 'connection-status offline';
+                dotEl.className = 'status-dot offline';
+                textEl.textContent = errorMessage;
+                retryBtn.classList.remove('hidden');
+                firebaseConnected = false;
+                document.getElementById('cloud-status-text').textContent = '❌ Offline';
                 return false;
             }
         }
 
-        // ============================================
-        // 4. ONLINE/OFFLINE DETECTION (Browser)
-        // ============================================
-        function updateOnlineStatus() {
-            const statusText = document.getElementById('connection-status-text');
-            if (navigator.onLine) {
-                statusText.innerHTML = '🟢 Online';
-                checkFirebaseConnection();
-            } else {
-                statusText.innerHTML = '🔴 Offline';
-                document.getElementById('cloud-status').textContent = '⚠️ Offline - Data lokal';
-            }
+        function retryFirebaseConnection() {
+            const btn = document.getElementById('btn-retry-firebase');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Mengecek...';
+            
+            const statusEl = document.getElementById('firebase-status');
+            const dotEl = document.getElementById('firebase-dot');
+            const textEl = document.getElementById('firebase-status-text');
+            
+            statusEl.className = 'connection-status checking';
+            dotEl.className = 'status-dot checking';
+            textEl.textContent = '⏳ Mengecek ulang koneksi...';
+            
+            setTimeout(async () => {
+                await checkFirebaseConnection();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync mr-1"></i>Coba Ulang Koneksi';
+            }, 1500);
         }
 
-        window.addEventListener('online', () => {
-            console.log('📶 Koneksi internet: ONLINE');
-            updateOnlineStatus();
-        });
-        
-        window.addEventListener('offline', () => {
-            console.log('📶 Koneksi internet: OFFLINE');
-            updateOnlineStatus();
-        });
-
         // ============================================
-        // 5. DATABASE INDEXEDDB (LOCAL)
+        // DATABASE INDEXEDDB
         // ============================================
-        const DB_NAME = 'AbsensiFaceOptimizedDB';
-        const DB_VERSION = 4;
+        const DB_NAME = 'AbsensiFullDB';
         let db_local = null;
 
         function initDatabase() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                const request = indexedDB.open(DB_NAME, 1);
                 request.onerror = () => reject(request.error);
                 request.onsuccess = () => {
                     db_local = request.result;
@@ -935,32 +966,18 @@
                 };
                 request.onupgradeneeded = (event) => {
                     const database = event.target.result;
-                    
                     if (!database.objectStoreNames.contains('users')) {
-                        const userStore = database.createObjectStore('users', { keyPath: 'id' });
-                        userStore.createIndex('role', 'role');
-                        userStore.createIndex('name', 'name');
-                        userStore.createIndex('status', 'status');
+                        database.createObjectStore('users', { keyPath: 'id' });
                     }
-                    
                     if (!database.objectStoreNames.contains('face_data')) {
-                        const faceStore = database.createObjectStore('face_data', { keyPath: 'id', autoIncrement: true });
-                        faceStore.createIndex('user_id', 'user_id');
-                        faceStore.createIndex('type', 'type');
+                        const store = database.createObjectStore('face_data', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('user_id', 'user_id');
                     }
-                    
                     if (!database.objectStoreNames.contains('absensi')) {
-                        const absensiStore = database.createObjectStore('absensi', { 
-                            keyPath: 'id', 
-                            autoIncrement: true 
-                        });
-                        absensiStore.createIndex('user_id', 'user_id');
-                        absensiStore.createIndex('tanggal', 'tanggal');
-                        absensiStore.createIndex('jenis_absen', 'jenis_absen');
-                        absensiStore.createIndex('status', 'status');
-                        absensiStore.createIndex('created_at', 'created_at');
+                        const store = database.createObjectStore('absensi', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('user_id', 'user_id');
+                        store.createIndex('tanggal', 'tanggal');
                     }
-                    
                     if (!database.objectStoreNames.contains('config')) {
                         database.createObjectStore('config', { keyPath: 'key' });
                     }
@@ -969,7 +986,7 @@
         }
 
         // ============================================
-        // 6. USER MANAGEMENT (LOCAL)
+        // USER FUNCTIONS
         // ============================================
         function getUsers() {
             return new Promise((resolve, reject) => {
@@ -985,10 +1002,7 @@
             return new Promise((resolve, reject) => {
                 const tx = db_local.transaction(['users'], 'readwrite');
                 const store = tx.objectStore('users');
-                const request = store.add({ 
-                    id, name, password, role, status, 
-                    created_at: new Date().toISOString() 
-                });
+                const request = store.add({ id, name, password, role, status, created_at: new Date().toISOString() });
                 request.onsuccess = () => resolve(request.result);
                 request.onerror = () => reject(request.error);
             });
@@ -1021,11 +1035,8 @@
                 const request = store.get(id);
                 request.onsuccess = () => {
                     const user = request.result;
-                    if (user && user.password === password) {
-                        resolve(user);
-                    } else {
-                        resolve(null);
-                    }
+                    if (user && user.password === password) resolve(user);
+                    else resolve(null);
                 };
                 request.onerror = () => reject(request.error);
             });
@@ -1053,18 +1064,13 @@
         }
 
         // ============================================
-        // 7. FACE DATA (LOCAL)
+        // FACE DATA FUNCTIONS
         // ============================================
         function saveFaceData(userId, type, imageData) {
             return new Promise((resolve, reject) => {
                 const tx = db_local.transaction(['face_data'], 'readwrite');
                 const store = tx.objectStore('face_data');
-                const request = store.add({
-                    user_id: userId,
-                    type: type,
-                    image: imageData,
-                    created_at: new Date().toISOString()
-                });
+                const request = store.add({ user_id: userId, type: type, image: imageData, created_at: new Date().toISOString() });
                 request.onsuccess = () => resolve(request.result);
                 request.onerror = () => reject(request.error);
             });
@@ -1102,7 +1108,7 @@
         }
 
         // ============================================
-        // 8. ABSENSI (LOCAL)
+        // ABSENSI FUNCTIONS
         // ============================================
         function saveAbsensi(data) {
             return new Promise((resolve, reject) => {
@@ -1146,7 +1152,142 @@
         }
 
         // ============================================
-        // 9. AUTO DELETE OLD DATA
+        // CONFIG FUNCTIONS
+        // ============================================
+        function getConfig() {
+            return new Promise((resolve) => {
+                try {
+                    const tx = db_local.transaction(['config'], 'readonly');
+                    const store = tx.objectStore('config');
+                    const request = store.getAll();
+                    request.onsuccess = () => {
+                        const configs = request.result;
+                        const config = {};
+                        configs.forEach(item => { config[item.key] = item.value; });
+                        resolve(config);
+                    };
+                    request.onerror = () => resolve({});
+                } catch {
+                    resolve({});
+                }
+            });
+        }
+
+        function saveConfig(key, value) {
+            return new Promise((resolve, reject) => {
+                const tx = db_local.transaction(['config'], 'readwrite');
+                const store = tx.objectStore('config');
+                const request = store.put({ key, value });
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // ============================================
+        // SAVE USER TO FIREBASE
+        // ============================================
+        async function saveUserToFirebase(userData) {
+            try {
+                if (!firebaseConnected) {
+                    console.warn('Firebase offline, data hanya disimpan lokal');
+                    return false;
+                }
+                
+                const db = firebase.firestore();
+                await db.collection('users').doc(userData.id).set({
+                    id: userData.id,
+                    name: userData.name,
+                    role: userData.role || 'user',
+                    status: userData.status || 'pending',
+                    created_at: new Date().toISOString(),
+                    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                
+                console.log('✅ User saved to Firebase:', userData.id);
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Failed to save user to Firebase:', error);
+                return false;
+            }
+        }
+
+        // ============================================
+        // LOAD USERS FROM FIREBASE
+        // ============================================
+        async function loadUsersFromFirebase() {
+            try {
+                if (!firebaseConnected) {
+                    const users = await getUsers();
+                    document.getElementById('total-users').textContent = users.length;
+                    return users;
+                }
+                
+                const db = firebase.firestore();
+                const snapshot = await db.collection('users').get();
+                const users = [];
+                snapshot.forEach(doc => {
+                    users.push(doc.data());
+                });
+                
+                document.getElementById('total-users').textContent = users.length;
+                return users;
+                
+            } catch (error) {
+                console.error('Error loading users from Firebase:', error);
+                const users = await getUsers();
+                document.getElementById('total-users').textContent = users.length;
+                return users;
+            }
+        }
+
+        // ============================================
+        // LOAD PENDING USERS FROM FIREBASE
+        // ============================================
+        async function loadPendingUsersFromFirebase() {
+            try {
+                if (!firebaseConnected) {
+                    return await getPendingUsers();
+                }
+                
+                const db = firebase.firestore();
+                const snapshot = await db.collection('users')
+                    .where('status', '==', 'pending')
+                    .get();
+                    
+                const users = [];
+                snapshot.forEach(doc => {
+                    users.push(doc.data());
+                });
+                return users;
+                
+            } catch (error) {
+                console.error('Error loading pending users:', error);
+                return await getPendingUsers();
+            }
+        }
+
+        // ============================================
+        // VERIFY USER IN FIREBASE
+        // ============================================
+        async function verifyUserInFirebase(userId, approve) {
+            try {
+                const db = firebase.firestore();
+                const status = approve ? 'approved' : 'rejected';
+                await db.collection('users').doc(userId).update({
+                    status: status,
+                    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ User ${userId} ${status}`);
+                return true;
+            } catch (error) {
+                console.error('Error updating user status:', error);
+                return false;
+            }
+        }
+
+        // ============================================
+        // AUTO DELETE OLD DATA
         // ============================================
         async function autoDeleteOldData() {
             try {
@@ -1176,7 +1317,6 @@
                 }
                 
                 console.log(`🧹 Auto delete: ${deleted} data lama dihapus (retensi ${retentionMonths} bulan)`);
-                updateStorageInfo();
                 
             } catch (error) {
                 console.error('Auto delete error:', error);
@@ -1184,230 +1324,7 @@
         }
 
         // ============================================
-        // 10. STORAGE INFO
-        // ============================================
-        async function updateStorageInfo() {
-            try {
-                const allData = await getAllAbsensi();
-                const retention = parseInt(localStorage.getItem('retention_months')) || 3;
-                
-                let totalSize = 0;
-                for (const item of allData) {
-                    totalSize += 1;
-                    if (item.foto) {
-                        const base64Length = item.foto.length;
-                        const sizeInKB = (base64Length * 3/4) / 1024;
-                        totalSize += sizeInKB;
-                    }
-                }
-                
-                const sizeMB = (totalSize / 1024).toFixed(2);
-                document.getElementById('storage-info').textContent = 
-                    `${allData.length} data • ~${sizeMB} MB`;
-                document.getElementById('retention-info').textContent = 
-                    retention === 0 ? 'Tidak pernah' : `${retention} bulan`;
-                
-            } catch (error) {
-                console.error('Storage info error:', error);
-            }
-        }
-
-        // ============================================
-        // 11. FIREBASE SYNC FUNCTIONS
-        // ============================================
-        function updateSyncStatus(status, message = '') {
-            const el = document.getElementById('sync-status');
-            if (!el) return;
-            
-            el.className = `sync-status ${status}`;
-            const icon = el.querySelector('i');
-            const text = el.querySelector('span');
-            
-            if (status === 'synced') {
-                icon.className = 'fas fa-cloud-upload-alt';
-                text.textContent = message || 'Synced';
-            } else if (status === 'syncing') {
-                icon.className = 'fas fa-spinner fa-spin';
-                text.textContent = message || 'Syncing...';
-            } else if (status === 'error') {
-                icon.className = 'fas fa-exclamation-triangle';
-                text.textContent = message || 'Sync Error';
-            }
-        }
-
-        async function syncUsersToFirebase() {
-            try {
-                updateSyncStatus('syncing', 'Syncing users...');
-                
-                const users = await getUsers();
-                if (users.length === 0) {
-                    updateSyncStatus('synced', 'No users to sync');
-                    return { success: true, count: 0 };
-                }
-                
-                let syncedCount = 0;
-                for (const user of users) {
-                    await db.collection('users').doc(user.id).set({
-                        id: user.id,
-                        name: user.name,
-                        role: user.role,
-                        status: user.status,
-                        created_at: user.created_at || new Date().toISOString(),
-                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    syncedCount++;
-                }
-                
-                updateSyncStatus('synced', `${syncedCount} users synced`);
-                return { success: true, count: syncedCount };
-                
-            } catch (error) {
-                console.error('Error syncing users:', error);
-                updateSyncStatus('error', 'User sync failed');
-                return { success: false, error: error.message };
-            }
-        }
-
-        async function syncFaceDataToFirebase(userId) {
-            try {
-                const faceData = await getFaceDataByUser(userId);
-                if (faceData.length === 0) return { success: true, count: 0 };
-                
-                let syncedCount = 0;
-                for (const face of faceData) {
-                    const storageRef = storage.ref(`faces/${userId}/${face.type}.jpg`);
-                    await storageRef.putString(face.image, 'data_url');
-                    const downloadURL = await storageRef.getDownloadURL();
-                    await db.collection('faces').doc(`${userId}_${face.type}`).set({
-                        user_id: userId,
-                        type: face.type,
-                        image_url: downloadURL,
-                        created_at: face.created_at || new Date().toISOString(),
-                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    syncedCount++;
-                }
-                
-                return { success: true, count: syncedCount };
-                
-            } catch (error) {
-                console.error('Error syncing face data:', error);
-                return { success: false, error: error.message };
-            }
-        }
-
-        async function syncAbsensiToFirebase() {
-            try {
-                updateSyncStatus('syncing', 'Syncing attendance...');
-                
-                const absensiData = await getAllAbsensi();
-                if (absensiData.length === 0) {
-                    updateSyncStatus('synced', 'No attendance to sync');
-                    return { success: true, count: 0 };
-                }
-                
-                let syncedCount = 0;
-                for (const item of absensiData) {
-                    const docData = {
-                        local_id: item.id,
-                        user_id: item.user_id,
-                        user_name: item.user_name || '-',
-                        jenis_absen: item.jenis_absen,
-                        waktu: item.waktu,
-                        tanggal: item.tanggal,
-                        status: item.status,
-                        jarak: item.jarak,
-                        face_score: item.face_score || 0,
-                        lat: item.lat || null,
-                        lng: item.lng || null,
-                        is_audit: item.is_audit || false,
-                        timestamp: item.timestamp || new Date().toISOString(),
-                        synced_at: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    
-                    await db.collection('absensi').doc(`absensi_${item.id}`).set(docData, { merge: true });
-                    
-                    if (item.is_audit && item.foto) {
-                        try {
-                            const storageRef = storage.ref(`audit/${item.user_id}/${item.tanggal}_${item.jenis_absen}.jpg`);
-                            await storageRef.putString(item.foto, 'data_url');
-                            const downloadURL = await storageRef.getDownloadURL();
-                            await db.collection('absensi').doc(`absensi_${item.id}`).update({
-                                audit_photo_url: downloadURL
-                            });
-                        } catch (uploadError) {
-                            console.warn('Failed to upload audit photo:', uploadError);
-                        }
-                    }
-                    
-                    syncedCount++;
-                }
-                
-                updateSyncStatus('synced', `${syncedCount} attendance synced`);
-                return { success: true, count: syncedCount };
-                
-            } catch (error) {
-                console.error('Error syncing absensi:', error);
-                updateSyncStatus('error', 'Attendance sync failed');
-                return { success: false, error: error.message };
-            }
-        }
-
-        window.syncToFirebase = async function() {
-            if (!navigator.onLine) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Tidak Ada Koneksi Internet',
-                    text: 'Pastikan Anda terhubung ke internet untuk sync ke cloud',
-                    confirmButtonColor: '#f39c12'
-                });
-                return;
-            }
-            
-            Swal.fire({
-                title: 'Menyinkronkan Data...',
-                text: 'Mengirim data ke Firebase cloud',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-            
-            try {
-                await syncUsersToFirebase();
-                await syncAbsensiToFirebase();
-                
-                const users = await getUsers();
-                for (const user of users) {
-                    if (user.status === 'approved') {
-                        await syncFaceDataToFirebase(user.id);
-                    }
-                }
-                
-                document.getElementById('cloud-status').textContent = '✅ Tersinkronisasi';
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sinkronisasi Berhasil!',
-                    text: 'Semua data telah disimpan ke cloud',
-                    confirmButtonColor: '#3085d6'
-                });
-                
-                updateSyncStatus('synced', 'All data synced');
-                
-            } catch (error) {
-                console.error('Sync error:', error);
-                document.getElementById('cloud-status').textContent = '❌ Gagal sync';
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Sinkronisasi Gagal',
-                    text: error.message || 'Terjadi kesalahan saat sync',
-                    confirmButtonColor: '#d33'
-                });
-                updateSyncStatus('error', 'Sync failed');
-            }
-        };
-
-        // ============================================
-        // 12. KONFIGURASI
+        // CONFIGURATION
         // ============================================
         const CONFIG = {
             KANTOR_LAT: -6.1923239,
@@ -1427,6 +1344,7 @@
         let watchId = null;
         let allAbsensiData = [];
         let filteredAbsensiData = [];
+        let resetTargetUser = null;
 
         // Face registration state
         let regStep = 0;
@@ -1444,7 +1362,7 @@
         let regContext = null;
 
         // ============================================
-        // 13. OPTIMIZED IMAGE CAPTURE
+        // OPTIMIZED IMAGE CAPTURE
         // ============================================
         function ambilFotoOptimasi(kualitas = CONFIG.IMAGE_QUALITY) {
             const videoElement = video;
@@ -1466,7 +1384,7 @@
         }
 
         // ============================================
-        // 14. FACE COMPARISON
+        // FACE COMPARISON
         // ============================================
         function compareFaces(image1, image2) {
             return new Promise((resolve) => {
@@ -1547,7 +1465,7 @@
         }
 
         // ============================================
-        // 15. LOGIN / SIGNUP
+        // LOGIN / SIGNUP
         // ============================================
         function showLogin() {
             document.getElementById('login-form').classList.remove('hidden');
@@ -1575,7 +1493,23 @@
             }
             
             try {
-                const user = await findUser(id, password);
+                let user = null;
+                if (firebaseConnected) {
+                    const db = firebase.firestore();
+                    const doc = await db.collection('users').doc(id).get();
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if (data.password === password) {
+                            user = data;
+                            await addUser(id, data.name, data.password, data.role || 'user', data.status);
+                        }
+                    }
+                }
+                
+                if (!user) {
+                    user = await findUser(id, password);
+                }
+                
                 if (user) {
                     if (user.status === 'pending') {
                         Swal.fire({ icon: 'info', title: 'Menunggu Verifikasi', text: 'Akun Anda sedang menunggu persetujuan admin.' });
@@ -1591,6 +1525,7 @@
                     Swal.fire({ icon: 'error', title: 'Login Gagal', text: 'ID atau password salah' });
                 }
             } catch (error) {
+                console.error('Login error:', error);
                 Swal.fire({ icon: 'error', title: 'Error', text: 'Terjadi kesalahan saat login' });
             }
         });
@@ -1609,6 +1544,8 @@
             
             if (user.role === 'admin') {
                 document.getElementById('admin-panel').classList.remove('hidden');
+                loadPendingUsersFromFirebase();
+                loadUsersFromFirebase();
             }
             
             const today = new Date().toISOString().split('T')[0];
@@ -1617,10 +1554,6 @@
             initCamera();
             startGPSTracking();
             loadUserLog();
-            updateStorageInfo();
-            
-            // Cek cloud status
-            checkCloudStatus();
             
             Swal.fire({
                 icon: 'success',
@@ -1672,7 +1605,7 @@
         }
 
         // ============================================
-        // 16. GANTI PASSWORD ADMIN
+        // GANTI PASSWORD ADMIN
         // ============================================
         function showChangePassword() {
             document.getElementById('change-password-modal').classList.remove('hidden');
@@ -1718,13 +1651,16 @@
                 user.password = newPassword;
                 await updateUser('admin', user);
                 
-                try {
-                    await db.collection('users').doc('admin').update({
-                        password: newPassword,
-                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch (firebaseError) {
-                    console.warn('Firebase update error:', firebaseError);
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        await db.collection('users').doc('admin').update({
+                            password: newPassword,
+                            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (firebaseError) {
+                        console.warn('Firebase update error:', firebaseError);
+                    }
                 }
                 
                 closeModal('change-password-modal');
@@ -1743,7 +1679,7 @@
         });
 
         // ============================================
-        // 17. FACE REGISTRATION
+        // FACE REGISTRATION
         // ============================================
         async function startFaceRegistration() {
             const id = document.getElementById('signup-id').value.trim();
@@ -1761,14 +1697,22 @@
             }
             
             try {
-                const users = await getUsers();
-                if (users.some(u => u.id === id)) {
+                let exists = false;
+                if (firebaseConnected) {
+                    const db = firebase.firestore();
+                    const doc = await db.collection('users').doc(id).get();
+                    if (doc.exists) exists = true;
+                }
+                if (!exists) {
+                    const users = await getUsers();
+                    if (users.some(u => u.id === id)) exists = true;
+                }
+                if (exists) {
                     Swal.fire({ icon: 'error', title: 'ID Sudah Ada', text: 'Gunakan ID lain' });
                     return;
                 }
             } catch (error) {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Terjadi kesalahan' });
-                return;
+                console.error('Check ID error:', error);
             }
             
             window._signupData = { id, name, password };
@@ -1865,6 +1809,29 @@
                     await saveFaceData(id, type, image);
                 }
                 
+                const userData = {
+                    id: id,
+                    name: name,
+                    password: password,
+                    role: 'user',
+                    status: 'pending'
+                };
+                
+                const saved = await saveUserToFirebase(userData);
+                
+                if (saved && firebaseConnected) {
+                    const storage = firebase.storage();
+                    for (const [type, image] of Object.entries(capturedFaces)) {
+                        try {
+                            const storageRef = storage.ref(`faces/${id}/${type}.jpg`);
+                            await storageRef.putString(image, 'data_url');
+                            console.log(`✅ Face ${type} uploaded to Firebase Storage`);
+                        } catch (uploadError) {
+                            console.warn(`Failed to upload face ${type}:`, uploadError);
+                        }
+                    }
+                }
+                
                 closeFaceReg();
                 
                 Swal.fire({
@@ -1873,7 +1840,7 @@
                     html: `
                         <p>Akun <b>${id}</b> telah berhasil didaftarkan.</p>
                         <p class="text-yellow-600 mt-2">⏳ Menunggu verifikasi dari admin.</p>
-                        <p class="text-xs text-slate-400 mt-2">Admin akan memverifikasi data wajah Anda sebelum akun aktif.</p>
+                        <p class="text-xs text-slate-400 mt-2">✅ Data tersimpan di cloud, admin bisa melihat dari mana saja.</p>
                     `,
                     confirmButtonColor: '#3085d6'
                 });
@@ -1883,9 +1850,18 @@
                 document.getElementById('signup-password').value = '';
                 showLogin();
                 
+                if (currentUser && currentUser.role === 'admin') {
+                    loadUsersFromFirebase();
+                    loadPendingUsersFromFirebase();
+                }
+                
             } catch (error) {
                 console.error('Registration error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal Mendaftar', text: 'Terjadi kesalahan' });
+                Swal.fire({ 
+                    icon: 'error', 
+                    title: 'Gagal Mendaftar', 
+                    text: 'Terjadi kesalahan: ' + error.message 
+                });
             }
         }
 
@@ -1898,7 +1874,668 @@
         }
 
         // ============================================
-        // 18. GPS TRACKING
+        // ADMIN - VERIFY PENDING USERS
+        // ============================================
+        async function showPendingUsers() {
+            document.getElementById('verify-modal').classList.remove('hidden');
+            await loadPendingUsersUI();
+        }
+
+        async function loadPendingUsersUI() {
+            const list = document.getElementById('pending-users-list');
+            if (!list) return;
+            
+            try {
+                const users = await loadPendingUsersFromFirebase();
+                if (users.length === 0) {
+                    list.innerHTML = '<p class="text-center text-slate-400 py-4">Tidak ada user yang menunggu verifikasi</p>';
+                    return;
+                }
+                
+                let html = '';
+                for (const user of users) {
+                    html += `
+                        <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 mb-3">
+                            <div class="flex flex-wrap justify-between items-start gap-2">
+                                <div>
+                                    <p class="font-bold">${user.id}</p>
+                                    <p class="text-sm text-slate-500">${user.name}</p>
+                                    <p class="text-xs text-slate-400">Daftar: ${new Date(user.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="verifyUserAction('${user.id}', true)" 
+                                            class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs">
+                                        <i class="fas fa-check mr-1"></i>Setujui
+                                    </button>
+                                    <button onclick="verifyUserAction('${user.id}', false)" 
+                                            class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
+                                        <i class="fas fa-times mr-1"></i>Tolak
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                list.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading pending users:', error);
+                list.innerHTML = '<p class="text-center text-red-500 py-4">Gagal memuat data</p>';
+            }
+        }
+
+        async function verifyUserAction(userId, approve) {
+            try {
+                const success = await verifyUserInFirebase(userId, approve);
+                if (success) {
+                    const user = await getUserById(userId);
+                    if (user) {
+                        user.status = approve ? 'approved' : 'rejected';
+                        await updateUser(userId, user);
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: approve ? '✅ User Disetujui' : '❌ User Ditolak',
+                        text: `User ${userId} ${approve ? 'telah diverifikasi' : 'ditolak'}`,
+                        confirmButtonColor: '#3085d6'
+                    });
+                    
+                    await loadPendingUsersUI();
+                    loadUsersFromFirebase();
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
+                }
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: error.message });
+            }
+        }
+
+        // ============================================
+        // ADMIN - KELOLA USER
+        // ============================================
+        async function showManageUsers() {
+            document.getElementById('user-modal').classList.remove('hidden');
+            document.getElementById('search-user').value = '';
+            await loadUserList();
+        }
+
+        async function loadUserList() {
+            const list = document.getElementById('user-list');
+            try {
+                const users = await loadUsersFromFirebase();
+                if (users.length === 0) {
+                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">Belum ada user</p>';
+                    return;
+                }
+                
+                const search = document.getElementById('search-user')?.value.toLowerCase() || '';
+                const filtered = users.filter(u => 
+                    u.id.toLowerCase().includes(search) || 
+                    (u.name && u.name.toLowerCase().includes(search))
+                );
+                
+                if (filtered.length === 0) {
+                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">User tidak ditemukan</p>';
+                    return;
+                }
+                
+                let html = '';
+                for (const user of filtered) {
+                    const isAdmin = user.role === 'admin';
+                    const isDefault = user.id === 'admin';
+                    const statusBadge = user.status === 'approved' ? '✅' :
+                                       user.status === 'pending' ? '⏳' : '❌';
+                    const statusColor = user.status === 'approved' ? 'text-green-600' :
+                                       user.status === 'pending' ? 'text-yellow-600' : 'text-red-600';
+                    
+                    html += `
+                        <div class="flex flex-wrap items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-sm">${user.id}</span>
+                                <span class="text-xs text-slate-500">${user.name || '-'}</span>
+                                <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'}">
+                                    ${isAdmin ? '👑 Admin' : '👤 User'}
+                                </span>
+                                <span class="text-xs ${statusColor}">${statusBadge} ${user.status}</span>
+                            </div>
+                            <div class="flex gap-1">
+                                ${!isDefault ? `
+                                    <button onclick="showResetPassword('${user.id}')" 
+                                            class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    <button onclick="deleteUserAction('${user.id}')" 
+                                            class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : `
+                                    <span class="text-xs text-slate-400 px-2 py-1">Default</span>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }
+                list.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading users:', error);
+                list.innerHTML = '<p class="text-center text-sm text-red-500">Gagal memuat</p>';
+            }
+        }
+
+        function filterUserList() {
+            loadUserList();
+        }
+
+        function showResetPassword(userId) {
+            resetTargetUser = userId;
+            document.getElementById('reset-user-info').textContent = `User: ${userId}`;
+            document.getElementById('reset-new-password').value = '';
+            document.getElementById('reset-confirm-password').value = '';
+            document.getElementById('reset-password-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('reset-password-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const newPass = document.getElementById('reset-new-password').value.trim();
+            const confirmPass = document.getElementById('reset-confirm-password').value.trim();
+            
+            if (!newPass || newPass.length < 4) {
+                Swal.fire({ icon: 'warning', title: 'Password Terlalu Pendek', text: 'Minimal 4 karakter' });
+                return;
+            }
+            
+            if (newPass !== confirmPass) {
+                Swal.fire({ icon: 'warning', title: 'Password Tidak Sama', text: 'Konfirmasi password harus sama' });
+                return;
+            }
+            
+            try {
+                const user = await getUserById(resetTargetUser);
+                if (!user) {
+                    Swal.fire({ icon: 'error', title: 'User Tidak Ditemukan' });
+                    return;
+                }
+                
+                user.password = newPass;
+                await updateUser(resetTargetUser, user);
+                
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        await db.collection('users').doc(resetTargetUser).update({
+                            password: newPass,
+                            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (firebaseError) {
+                        console.warn('Firebase update error:', firebaseError);
+                    }
+                }
+                
+                Swal.fire({ icon: 'success', title: 'Password Direset', text: `Password untuk ${resetTargetUser} telah diubah` });
+                closeModal('reset-password-modal');
+                await loadUserList();
+            } catch (error) {
+                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
+            }
+        });
+
+        async function deleteUserAction(id) {
+            const result = await Swal.fire({
+                title: 'Hapus User?',
+                text: `Hapus user "${id}"? Data wajah dan absensi juga akan dihapus.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Hapus'
+            });
+            
+            if (result.isConfirmed) {
+                try {
+                    await deleteFaceData(id);
+                    await deleteUser(id);
+                    
+                    if (firebaseConnected) {
+                        try {
+                            const db = firebase.firestore();
+                            await db.collection('users').doc(id).delete();
+                            console.log(`✅ User ${id} deleted from Firebase`);
+                        } catch (firebaseError) {
+                            console.warn('Firebase delete error:', firebaseError);
+                        }
+                    }
+                    
+                    Swal.fire({ icon: 'success', title: 'User Dihapus' });
+                    await loadUserList();
+                    loadUsersFromFirebase();
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: error.message });
+                }
+            }
+        }
+
+        // ============================================
+        // ADMIN - SEMUA ABSENSI
+        // ============================================
+        async function showAllAbsensi() {
+            document.getElementById('all-absensi-modal').classList.remove('hidden');
+            await loadAllAbsensi();
+        }
+
+        async function loadAllAbsensi() {
+            try {
+                allAbsensiData = await getAllAbsensi();
+                allAbsensiData.sort((a, b) => b.id - a.id);
+                filteredAbsensiData = [...allAbsensiData];
+                renderAdminTable();
+            } catch (error) {
+                console.error('Error loading absensi:', error);
+                document.getElementById('all-absensi-body').innerHTML = 
+                    '<tr><td colspan="9" class="text-center py-4 text-red-500">Gagal memuat data</td></tr>';
+            }
+        }
+
+        function filterAdminAbsensi() {
+            const search = document.getElementById('admin-search-user').value.toLowerCase();
+            const date = document.getElementById('admin-filter-date').value;
+            const status = document.getElementById('admin-filter-status').value;
+            
+            filteredAbsensiData = allAbsensiData.filter(item => {
+                let match = true;
+                if (search) {
+                    match = match && (item.user_id.toLowerCase().includes(search) || 
+                                     (item.user_name && item.user_name.toLowerCase().includes(search)));
+                }
+                if (date) {
+                    match = match && item.tanggal === date;
+                }
+                if (status) {
+                    match = match && item.status === status;
+                }
+                return match;
+            });
+            
+            renderAdminTable();
+        }
+
+        function resetAdminFilter() {
+            document.getElementById('admin-search-user').value = '';
+            document.getElementById('admin-filter-date').value = '';
+            document.getElementById('admin-filter-status').value = '';
+            filteredAbsensiData = [...allAbsensiData];
+            renderAdminTable();
+        }
+
+        function renderAdminTable() {
+            const tbody = document.getElementById('all-absensi-body');
+            const total = document.getElementById('admin-total-count');
+            
+            total.textContent = filteredAbsensiData.length;
+            
+            if (filteredAbsensiData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-slate-400">Tidak ada data</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            filteredAbsensiData.forEach((item, index) => {
+                const statusClass = item.status === 'Terlambat' ? 'text-red-600 dark:text-red-400' :
+                                   item.status === 'Tepat Waktu' ? 'text-green-600 dark:text-green-400' :
+                                   item.status === 'Wajah Tidak Cocok' ? 'text-red-600 dark:text-red-400' :
+                                   'text-blue-600 dark:text-blue-400';
+                html += `
+                    <tr class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
+                        <td class="p-2 text-center">${index + 1}</td>
+                        <td class="p-2 font-medium">${item.user_id}</td>
+                        <td class="p-2">${item.user_name || '-'}</td>
+                        <td class="p-2">${item.tanggal}</td>
+                        <td class="p-2">${item.waktu}</td>
+                        <td class="p-2 capitalize">${item.jenis_absen}</td>
+                        <td class="p-2 font-bold ${statusClass}">${item.status}</td>
+                        <td class="p-2">${item.face_score ? Math.round(item.face_score * 100) + '%' : '-'}</td>
+                        <td class="p-2">${item.jarak}m</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ============================================
+        // ADMIN - EXPORT EXCEL
+        // ============================================
+        function showExportModal() {
+            document.getElementById('export-modal').classList.remove('hidden');
+            document.getElementById('export-date-from').value = '';
+            document.getElementById('export-date-to').value = '';
+            document.getElementById('export-user-filter').value = '';
+            setQuickDate('today');
+        }
+
+        function setQuickDate(type) {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            if (type === 'today') {
+                document.getElementById('export-date-from').value = todayStr;
+                document.getElementById('export-date-to').value = todayStr;
+            } else if (type === 'week') {
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - today.getDay());
+                document.getElementById('export-date-from').value = weekStart.toISOString().split('T')[0];
+                document.getElementById('export-date-to').value = todayStr;
+            } else if (type === 'month') {
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                document.getElementById('export-date-from').value = monthStart.toISOString().split('T')[0];
+                document.getElementById('export-date-to').value = todayStr;
+            } else if (type === 'all') {
+                document.getElementById('export-date-from').value = '';
+                document.getElementById('export-date-to').value = '';
+            }
+            updateExportPreview();
+        }
+
+        function updateExportPreview() {
+            const dateFrom = document.getElementById('export-date-from').value;
+            const dateTo = document.getElementById('export-date-to').value;
+            const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
+            
+            let data = allAbsensiData;
+            
+            if (dateFrom && dateTo) {
+                data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
+            } else if (dateFrom) {
+                data = data.filter(item => item.tanggal >= dateFrom);
+            } else if (dateTo) {
+                data = data.filter(item => item.tanggal <= dateTo);
+            }
+            
+            if (userFilter) {
+                data = data.filter(item => 
+                    item.user_id.toLowerCase().includes(userFilter) ||
+                    (item.user_name && item.user_name.toLowerCase().includes(userFilter))
+                );
+            }
+            
+            document.getElementById('export-preview').textContent = `${data.length} data akan diexport`;
+            
+            let rangeText = 'Rentang: ';
+            if (dateFrom && dateTo) {
+                rangeText += `${dateFrom} s/d ${dateTo}`;
+            } else if (dateFrom) {
+                rangeText += `Mulai ${dateFrom}`;
+            } else if (dateTo) {
+                rangeText += `Sampai ${dateTo}`;
+            } else {
+                rangeText += 'Semua data';
+            }
+            document.getElementById('export-date-range').textContent = rangeText;
+        }
+
+        document.getElementById('export-date-from').addEventListener('change', updateExportPreview);
+        document.getElementById('export-date-to').addEventListener('change', updateExportPreview);
+        document.getElementById('export-user-filter').addEventListener('input', updateExportPreview);
+
+        async function exportToExcel() {
+            try {
+                const dateFrom = document.getElementById('export-date-from').value;
+                const dateTo = document.getElementById('export-date-to').value;
+                const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
+                
+                let data = await getAllAbsensi();
+                
+                if (dateFrom && dateTo) {
+                    data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
+                } else if (dateFrom) {
+                    data = data.filter(item => item.tanggal >= dateFrom);
+                } else if (dateTo) {
+                    data = data.filter(item => item.tanggal <= dateTo);
+                }
+                
+                if (userFilter) {
+                    data = data.filter(item => 
+                        item.user_id.toLowerCase().includes(userFilter) ||
+                        (item.user_name && item.user_name.toLowerCase().includes(userFilter))
+                    );
+                }
+                
+                if (data.length === 0) {
+                    Swal.fire({ icon: 'info', title: 'Tidak Ada Data', text: 'Tidak ada data sesuai filter' });
+                    return;
+                }
+                
+                const users = await getUsers();
+                const userMap = {};
+                users.forEach(u => { userMap[u.id] = u.name; });
+                
+                const excelData = data.map((item, index) => ({
+                    'No': index + 1,
+                    'ID Karyawan': item.user_id,
+                    'Nama': item.user_name || userMap[item.user_id] || '-',
+                    'Tanggal': item.tanggal,
+                    'Jam': item.waktu,
+                    'Jenis Absen': item.jenis_absen === 'masuk' ? 'Masuk' : 'Pulang',
+                    'Status': item.status,
+                    'Face Score': item.face_score ? Math.round(item.face_score * 100) + '%' : '-',
+                    'Jarak (meter)': item.jarak,
+                    'Latitude': item.lat || '-',
+                    'Longitude': item.lng || '-',
+                    'Timestamp': item.timestamp || '-'
+                }));
+                
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.json_to_sheet(excelData);
+                XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
+                
+                const colWidths = [
+                    { wch: 5 }, { wch: 15 }, { wch: 20 }, { wch: 12 },
+                    { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
+                    { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }
+                ];
+                ws['!cols'] = colWidths;
+                
+                let filename = 'Absensi';
+                if (dateFrom && dateTo) {
+                    filename += `_${dateFrom}_sampai_${dateTo}`;
+                } else if (dateFrom) {
+                    filename += `_dari_${dateFrom}`;
+                } else if (dateTo) {
+                    filename += `_sampai_${dateTo}`;
+                } else {
+                    filename += `_${new Date().toISOString().split('T')[0]}`;
+                }
+                if (userFilter) {
+                    filename += `_${userFilter}`;
+                }
+                filename += '.xlsx';
+                
+                XLSX.writeFile(wb, filename);
+                closeModal('export-modal');
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Export Berhasil',
+                    text: `${data.length} data berhasil diexport`,
+                    confirmButtonColor: '#3085d6'
+                });
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                Swal.fire({ icon: 'error', title: 'Gagal Export', text: 'Terjadi kesalahan' });
+            }
+        }
+
+        // ============================================
+        // ADMIN - SETTINGS
+        // ============================================
+        function showSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
+            document.getElementById('setting-masuk').value = `${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
+            document.getElementById('setting-pulang').value = `${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+            document.getElementById('setting-retention').value = localStorage.getItem('retention_months') || 3;
+            document.getElementById('setting-face-threshold').value = Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100);
+        }
+
+        function updateSetting(type) {
+            if (type === 'radius') {
+                const value = parseInt(document.getElementById('setting-radius').value);
+                if (value > 0 && value <= 100) {
+                    CONFIG.RADIUS_MAKSIMAL = value;
+                    document.getElementById('radius-info').textContent = `Radius: ${value}m`;
+                    Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter`, timer: 1500 });
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Radius harus 1-100 meter' });
+                }
+            } else if (type === 'masuk') {
+                const value = document.getElementById('setting-masuk').value;
+                const hour = parseInt(value.split(':')[0]);
+                CONFIG.JAM_MASUK_MAX = hour;
+                document.getElementById('jam-masuk-display').textContent = `Batas ${value}`;
+                Swal.fire({ icon: 'success', title: 'Jam Masuk Diperbarui', text: value, timer: 1500 });
+            } else if (type === 'pulang') {
+                const value = document.getElementById('setting-pulang').value;
+                const hour = parseInt(value.split(':')[0]);
+                CONFIG.JAM_PULANG_MIN = hour;
+                document.getElementById('jam-pulang-display').textContent = `Mulai ${value}`;
+                Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: value, timer: 1500 });
+            } else if (type === 'retention') {
+                const value = parseInt(document.getElementById('setting-retention').value);
+                localStorage.setItem('retention_months', value);
+                document.getElementById('retention-info').textContent = value === 0 ? 'Tidak pernah' : `${value} bulan`;
+                Swal.fire({ icon: 'success', title: 'Retensi Data Diperbarui', text: `Data akan dihapus ${value === 0 ? 'tidak pernah' : value + ' bulan'}`, timer: 1500 });
+                autoDeleteOldData();
+            } else if (type === 'face_threshold') {
+                const value = parseInt(document.getElementById('setting-face-threshold').value);
+                if (value >= 30 && value <= 90) {
+                    CONFIG.FACE_SIMILARITY_THRESHOLD = value / 100;
+                    Swal.fire({ icon: 'success', title: 'Face Threshold Diperbarui', text: `${value}%`, timer: 1500 });
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Threshold harus 30-90%' });
+                }
+            }
+        }
+
+        async function runCleanupNow() {
+            const result = await Swal.fire({
+                title: 'Bersihkan Data Lama?',
+                text: `Data lebih dari ${localStorage.getItem('retention_months') || 3} bulan akan dihapus.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Bersihkan'
+            });
+            
+            if (result.isConfirmed) {
+                await autoDeleteOldData();
+                await loadUserLog();
+                if (currentUser && currentUser.role === 'admin') {
+                    await loadAllAbsensi();
+                }
+                Swal.fire({ icon: 'success', title: 'Data Dibersihkan', text: 'Data lama telah dihapus' });
+            }
+        }
+
+        async function resetAllData() {
+            const result = await Swal.fire({
+                title: '⚠️ Reset Semua Data',
+                text: 'Hapus semua data absensi? Tindakan ini tidak dapat dibatalkan!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Reset'
+            });
+            
+            if (result.isConfirmed) {
+                try {
+                    await deleteAllAbsensi();
+                    await loadUserLog();
+                    if (currentUser && currentUser.role === 'admin') {
+                        await loadAllAbsensi();
+                    }
+                    Swal.fire({ icon: 'success', title: 'Data Direset', text: 'Semua data absensi telah dihapus' });
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: error.message });
+                }
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // ============================================
+        // SYNC TO FIREBASE
+        // ============================================
+        window.syncToFirebase = async function() {
+            if (!firebaseConnected) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Firebase Offline',
+                    text: 'Tidak dapat sync karena Firebase tidak terhubung.',
+                    confirmButtonColor: '#f39c12'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Menyinkronkan Data...',
+                text: 'Mengirim data ke Firebase cloud',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const db = firebase.firestore();
+                
+                const users = await getUsers();
+                for (const user of users) {
+                    await db.collection('users').doc(user.id).set({
+                        id: user.id,
+                        name: user.name,
+                        role: user.role,
+                        status: user.status,
+                        created_at: user.created_at || new Date().toISOString()
+                    }, { merge: true });
+                }
+
+                const absensi = await getAllAbsensi();
+                for (const item of absensi) {
+                    await db.collection('absensi').doc(`absensi_${item.id}`).set({
+                        local_id: item.id,
+                        user_id: item.user_id,
+                        user_name: item.user_name || '-',
+                        jenis_absen: item.jenis_absen,
+                        waktu: item.waktu,
+                        tanggal: item.tanggal,
+                        status: item.status,
+                        jarak: item.jarak,
+                        face_score: item.face_score || 0,
+                        timestamp: item.timestamp || new Date().toISOString()
+                    }, { merge: true });
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sinkronisasi Berhasil!',
+                    text: `${users.length} user & ${absensi.length} data absensi disimpan ke cloud`,
+                    confirmButtonColor: '#3085d6'
+                });
+
+            } catch (error) {
+                console.error('Sync error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Sinkronisasi Gagal',
+                    text: error.message || 'Terjadi kesalahan',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        };
+
+        // ============================================
+        // GPS TRACKING
         // ============================================
         function startGPSTracking() {
             if (!navigator.geolocation) {
@@ -1907,7 +2544,7 @@
             }
 
             document.getElementById('gps-text').textContent = 'Mencari GPS...';
-            document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-yellow-500';
+            document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-yellow-500 gps-pulse';
 
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
@@ -1963,7 +2600,7 @@
                 document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-green-500';
             } else {
                 document.getElementById('gps-text').textContent = `❌ ${jarak}m dari kantor (max ${CONFIG.RADIUS_MAKSIMAL}m)`;
-                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500';
+                document.getElementById('gps-status').className = 'w-3 h-3 rounded-full bg-red-500 gps-pulse';
             }
 
             document.getElementById('radius-info').textContent = `Akurasi: ${Math.round(accuracy || 0)}m | Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
@@ -1987,7 +2624,7 @@
         }
 
         // ============================================
-        // 19. KAMERA
+        // KAMERA
         // ============================================
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
@@ -2010,7 +2647,7 @@
         }
 
         // ============================================
-        // 20. CLOCK
+        // CLOCK
         // ============================================
         function updateClock() {
             const now = new Date();
@@ -2023,7 +2660,7 @@
         updateClock();
 
         // ============================================
-        // 21. PROSES ABSEN
+        // PROSES ABSEN
         // ============================================
         function showLoading(text, subtext) {
             document.getElementById('loading-overlay').classList.remove('hidden');
@@ -2225,14 +2862,6 @@
                         });
 
                         loadUserLog();
-                        updateStorageInfo();
-                        
-                        // Auto sync ke Firebase jika online
-                        if (navigator.onLine) {
-                            setTimeout(() => {
-                                syncToFirebase();
-                            }, 5000);
-                        }
 
                     }).catch(error => {
                         console.error('Save error:', error);
@@ -2251,7 +2880,7 @@
         }
 
         // ============================================
-        // 22. USER LOG
+        // USER LOG
         // ============================================
         function tambahkanKeLog(data) {
             const container = document.getElementById('log-container');
@@ -2337,613 +2966,12 @@
         }
 
         // ============================================
-        // 23. ADMIN - VERIFY PENDING USERS
-        // ============================================
-        async function showPendingUsers() {
-            document.getElementById('verify-modal').classList.remove('hidden');
-            await loadPendingUsers();
-        }
-
-        async function loadPendingUsers() {
-            const list = document.getElementById('pending-users-list');
-            try {
-                const users = await getPendingUsers();
-                if (users.length === 0) {
-                    list.innerHTML = '<p class="text-center text-slate-400 py-4">Tidak ada user yang menunggu verifikasi</p>';
-                    return;
-                }
-                
-                let html = '';
-                for (const user of users) {
-                    const faceData = await getFaceDataByUser(user.id);
-                    html += `
-                        <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4">
-                            <div class="flex flex-wrap justify-between items-start gap-2">
-                                <div>
-                                    <p class="font-bold">${user.id}</p>
-                                    <p class="text-sm text-slate-500">${user.name}</p>
-                                    <p class="text-xs text-slate-400">Daftar: ${new Date(user.created_at).toLocaleDateString()}</p>
-                                    <p class="text-xs text-slate-400">Foto wajah: ${faceData.length} dari 5</p>
-                                </div>
-                                <div class="flex gap-2">
-                                    <button onclick="viewFaceData('${user.id}')" 
-                                            class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs">
-                                        <i class="fas fa-eye mr-1"></i>Lihat Wajah
-                                    </button>
-                                    <button onclick="verifyUser('${user.id}', true)" 
-                                            class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs">
-                                        <i class="fas fa-check mr-1"></i>Setujui
-                                    </button>
-                                    <button onclick="verifyUser('${user.id}', false)" 
-                                            class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
-                                        <i class="fas fa-times mr-1"></i>Tolak
-                                    </button>
-                                </div>
-                            </div>
-                            ${faceData.length > 0 ? `
-                                <div class="flex gap-1 mt-2 overflow-x-auto">
-                                    ${faceData.map(f => `
-                                        <img src="${f.image}" class="w-12 h-12 rounded-lg object-cover border" 
-                                             onclick="Swal.fire({ imageUrl: '${f.image}', imageWidth: 300, imageHeight: 300, title: '${f.type}', confirmButtonColor: '#3085d6' })">
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }
-                list.innerHTML = html;
-            } catch (error) {
-                list.innerHTML = '<p class="text-center text-red-500 py-4">Gagal memuat data</p>';
-            }
-        }
-
-        function viewFaceData(userId) {}
-
-        async function verifyUser(userId, approve) {
-            try {
-                const user = await getUserById(userId);
-                if (!user) {
-                    Swal.fire({ icon: 'error', title: 'User Tidak Ditemukan' });
-                    return;
-                }
-                
-                user.status = approve ? 'approved' : 'rejected';
-                await updateUser(userId, user);
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: approve ? '✅ User Disetujui' : '❌ User Ditolak',
-                    text: `User ${userId} ${approve ? 'telah diverifikasi' : 'ditolak'}`,
-                    confirmButtonColor: '#3085d6'
-                });
-                
-                await loadPendingUsers();
-                
-                if (approve && navigator.onLine) {
-                    await syncFaceDataToFirebase(userId);
-                }
-            } catch (error) {
-                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
-            }
-        }
-
-        // ============================================
-        // 24. ADMIN - KELOLA USER
-        // ============================================
-        let resetTargetUser = null;
-
-        async function showManageUsers() {
-            document.getElementById('user-modal').classList.remove('hidden');
-            document.getElementById('search-user').value = '';
-            await loadUserList();
-        }
-
-        async function loadUserList() {
-            const list = document.getElementById('user-list');
-            try {
-                const users = await getUsers();
-                if (users.length === 0) {
-                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">Belum ada user</p>';
-                    return;
-                }
-                
-                const search = document.getElementById('search-user')?.value.toLowerCase() || '';
-                const filtered = users.filter(u => 
-                    u.id.toLowerCase().includes(search) || 
-                    u.name.toLowerCase().includes(search)
-                );
-                
-                if (filtered.length === 0) {
-                    list.innerHTML = '<p class="text-center text-sm text-slate-400 py-2">User tidak ditemukan</p>';
-                    return;
-                }
-                
-                let html = '';
-                for (const user of filtered) {
-                    const isAdmin = user.role === 'admin';
-                    const isDefault = user.id === 'admin';
-                    const statusBadge = user.status === 'approved' ? '✅' :
-                                       user.status === 'pending' ? '⏳' : '❌';
-                    const statusColor = user.status === 'approved' ? 'text-green-600' :
-                                       user.status === 'pending' ? 'text-yellow-600' : 'text-red-600';
-                    
-                    html += `
-                        <div class="flex flex-wrap items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg gap-2">
-                            <div class="flex items-center gap-2">
-                                <span class="font-medium text-sm">${user.id}</span>
-                                <span class="text-xs text-slate-500">${user.name}</span>
-                                <span class="text-xs ${isAdmin ? 'text-purple-600' : 'text-blue-600'}">
-                                    ${isAdmin ? '👑 Admin' : '👤 User'}
-                                </span>
-                                <span class="text-xs ${statusColor}">${statusBadge} ${user.status}</span>
-                            </div>
-                            <div class="flex gap-1">
-                                ${!isDefault ? `
-                                    <button onclick="showResetPassword('${user.id}')" 
-                                            class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
-                                        <i class="fas fa-key"></i>
-                                    </button>
-                                    <button onclick="deleteUserAccount('${user.id}')" 
-                                            class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                ` : `
-                                    <span class="text-xs text-slate-400 px-2 py-1">Default</span>
-                                `}
-                            </div>
-                        </div>
-                    `;
-                }
-                list.innerHTML = html;
-            } catch (error) {
-                list.innerHTML = '<p class="text-center text-sm text-red-500">Gagal memuat</p>';
-            }
-        }
-
-        function filterUserList() {
-            loadUserList();
-        }
-
-        function showResetPassword(userId) {
-            resetTargetUser = userId;
-            document.getElementById('reset-user-info').textContent = `User: ${userId}`;
-            document.getElementById('reset-new-password').value = '';
-            document.getElementById('reset-confirm-password').value = '';
-            document.getElementById('reset-password-modal').classList.remove('hidden');
-        }
-
-        document.getElementById('reset-password-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const newPass = document.getElementById('reset-new-password').value.trim();
-            const confirmPass = document.getElementById('reset-confirm-password').value.trim();
-            
-            if (!newPass || newPass.length < 4) {
-                Swal.fire({ icon: 'warning', title: 'Password Terlalu Pendek', text: 'Minimal 4 karakter' });
-                return;
-            }
-            
-            if (newPass !== confirmPass) {
-                Swal.fire({ icon: 'warning', title: 'Password Tidak Sama', text: 'Konfirmasi password harus sama' });
-                return;
-            }
-            
-            try {
-                const user = await getUserById(resetTargetUser);
-                if (!user) {
-                    Swal.fire({ icon: 'error', title: 'User Tidak Ditemukan' });
-                    return;
-                }
-                
-                user.password = newPass;
-                await updateUser(resetTargetUser, user);
-                
-                Swal.fire({ icon: 'success', title: 'Password Direset', text: `Password untuk ${resetTargetUser} telah diubah` });
-                closeModal('reset-password-modal');
-                await loadUserList();
-            } catch (error) {
-                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Terjadi kesalahan' });
-            }
-        });
-
-        async function deleteUserAccount(id) {
-            const result = await Swal.fire({
-                title: 'Hapus User?',
-                text: `Hapus user "${id}"? Data wajah dan absensi juga akan dihapus.`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Ya, Hapus'
-            });
-            
-            if (result.isConfirmed) {
-                try {
-                    await deleteFaceData(id);
-                    await deleteUser(id);
-                    Swal.fire({ icon: 'success', title: 'User Dihapus' });
-                    await loadUserList();
-                } catch (error) {
-                    Swal.fire({ icon: 'error', title: 'Gagal' });
-                }
-            }
-        }
-
-        // ============================================
-        // 25. ADMIN - SEMUA ABSENSI
-        // ============================================
-        async function showAllAbsensi() {
-            document.getElementById('all-absensi-modal').classList.remove('hidden');
-            await loadAllAbsensi();
-        }
-
-        async function loadAllAbsensi() {
-            try {
-                allAbsensiData = await getAllAbsensi();
-                allAbsensiData.sort((a, b) => b.id - a.id);
-                filteredAbsensiData = [...allAbsensiData];
-                renderAdminTable();
-            } catch (error) {
-                document.getElementById('all-absensi-body').innerHTML = 
-                    '<tr><td colspan="9" class="text-center py-4 text-red-500">Gagal memuat data</td></tr>';
-            }
-        }
-
-        function filterAdminAbsensi() {
-            const search = document.getElementById('admin-search-user').value.toLowerCase();
-            const date = document.getElementById('admin-filter-date').value;
-            const status = document.getElementById('admin-filter-status').value;
-            
-            filteredAbsensiData = allAbsensiData.filter(item => {
-                let match = true;
-                if (search) {
-                    match = match && (item.user_id.toLowerCase().includes(search) || 
-                                     (item.user_name && item.user_name.toLowerCase().includes(search)));
-                }
-                if (date) {
-                    match = match && item.tanggal === date;
-                }
-                if (status) {
-                    match = match && item.status === status;
-                }
-                return match;
-            });
-            
-            renderAdminTable();
-        }
-
-        function resetAdminFilter() {
-            document.getElementById('admin-search-user').value = '';
-            document.getElementById('admin-filter-date').value = '';
-            document.getElementById('admin-filter-status').value = '';
-            filteredAbsensiData = [...allAbsensiData];
-            renderAdminTable();
-        }
-
-        function renderAdminTable() {
-            const tbody = document.getElementById('all-absensi-body');
-            const total = document.getElementById('admin-total-count');
-            
-            total.textContent = filteredAbsensiData.length;
-            
-            if (filteredAbsensiData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-slate-400">Tidak ada data</td></tr>';
-                return;
-            }
-            
-            let html = '';
-            filteredAbsensiData.forEach((item, index) => {
-                const statusClass = item.status === 'Terlambat' ? 'text-red-600 dark:text-red-400' :
-                                   item.status === 'Tepat Waktu' ? 'text-green-600 dark:text-green-400' :
-                                   item.status === 'Wajah Tidak Cocok' ? 'text-red-600 dark:text-red-400' :
-                                   'text-blue-600 dark:text-blue-400';
-                html += `
-                    <tr class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
-                        <td class="p-2 text-center">${index + 1}</td>
-                        <td class="p-2 font-medium">${item.user_id}</td>
-                        <td class="p-2">${item.user_name || '-'}</td>
-                        <td class="p-2">${item.tanggal}</td>
-                        <td class="p-2">${item.waktu}</td>
-                        <td class="p-2 capitalize">${item.jenis_absen}</td>
-                        <td class="p-2 font-bold ${statusClass}">${item.status}</td>
-                        <td class="p-2">${item.face_score ? Math.round(item.face_score * 100) + '%' : '-'}</td>
-                        <td class="p-2">${item.jarak}m</td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        // ============================================
-        // 26. ADMIN - EXPORT EXCEL
-        // ============================================
-        function showExportModal() {
-            document.getElementById('export-modal').classList.remove('hidden');
-            document.getElementById('export-date-from').value = '';
-            document.getElementById('export-date-to').value = '';
-            document.getElementById('export-user-filter').value = '';
-            setQuickDate('today');
-        }
-
-        function setQuickDate(type) {
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
-            
-            if (type === 'today') {
-                document.getElementById('export-date-from').value = todayStr;
-                document.getElementById('export-date-to').value = todayStr;
-            } else if (type === 'week') {
-                const weekStart = new Date(today);
-                weekStart.setDate(today.getDate() - today.getDay());
-                document.getElementById('export-date-from').value = weekStart.toISOString().split('T')[0];
-                document.getElementById('export-date-to').value = todayStr;
-            } else if (type === 'month') {
-                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                document.getElementById('export-date-from').value = monthStart.toISOString().split('T')[0];
-                document.getElementById('export-date-to').value = todayStr;
-            } else if (type === 'all') {
-                document.getElementById('export-date-from').value = '';
-                document.getElementById('export-date-to').value = '';
-            }
-            updateExportPreview();
-        }
-
-        function updateExportPreview() {
-            const dateFrom = document.getElementById('export-date-from').value;
-            const dateTo = document.getElementById('export-date-to').value;
-            const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
-            
-            let data = allAbsensiData;
-            
-            if (dateFrom && dateTo) {
-                data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
-            } else if (dateFrom) {
-                data = data.filter(item => item.tanggal >= dateFrom);
-            } else if (dateTo) {
-                data = data.filter(item => item.tanggal <= dateTo);
-            }
-            
-            if (userFilter) {
-                data = data.filter(item => 
-                    item.user_id.toLowerCase().includes(userFilter) ||
-                    (item.user_name && item.user_name.toLowerCase().includes(userFilter))
-                );
-            }
-            
-            document.getElementById('export-preview').textContent = `${data.length} data akan diexport`;
-            
-            let rangeText = 'Rentang: ';
-            if (dateFrom && dateTo) {
-                rangeText += `${dateFrom} s/d ${dateTo}`;
-            } else if (dateFrom) {
-                rangeText += `Mulai ${dateFrom}`;
-            } else if (dateTo) {
-                rangeText += `Sampai ${dateTo}`;
-            } else {
-                rangeText += 'Semua data';
-            }
-            document.getElementById('export-date-range').textContent = rangeText;
-        }
-
-        document.getElementById('export-date-from').addEventListener('change', updateExportPreview);
-        document.getElementById('export-date-to').addEventListener('change', updateExportPreview);
-        document.getElementById('export-user-filter').addEventListener('input', updateExportPreview);
-
-        async function exportToExcel() {
-            try {
-                const dateFrom = document.getElementById('export-date-from').value;
-                const dateTo = document.getElementById('export-date-to').value;
-                const userFilter = document.getElementById('export-user-filter').value.toLowerCase();
-                
-                let data = await getAllAbsensi();
-                
-                if (dateFrom && dateTo) {
-                    data = data.filter(item => item.tanggal >= dateFrom && item.tanggal <= dateTo);
-                } else if (dateFrom) {
-                    data = data.filter(item => item.tanggal >= dateFrom);
-                } else if (dateTo) {
-                    data = data.filter(item => item.tanggal <= dateTo);
-                }
-                
-                if (userFilter) {
-                    data = data.filter(item => 
-                        item.user_id.toLowerCase().includes(userFilter) ||
-                        (item.user_name && item.user_name.toLowerCase().includes(userFilter))
-                    );
-                }
-                
-                if (data.length === 0) {
-                    Swal.fire({ icon: 'info', title: 'Tidak Ada Data', text: 'Tidak ada data sesuai filter' });
-                    return;
-                }
-                
-                const users = await getUsers();
-                const userMap = {};
-                users.forEach(u => { userMap[u.id] = u.name; });
-                
-                const excelData = data.map((item, index) => ({
-                    'No': index + 1,
-                    'ID Karyawan': item.user_id,
-                    'Nama': item.user_name || userMap[item.user_id] || '-',
-                    'Tanggal': item.tanggal,
-                    'Jam': item.waktu,
-                    'Jenis Absen': item.jenis_absen === 'masuk' ? 'Masuk' : 'Pulang',
-                    'Status': item.status,
-                    'Face Score': item.face_score ? Math.round(item.face_score * 100) + '%' : '-',
-                    'Jarak (meter)': item.jarak,
-                    'Latitude': item.lat || '-',
-                    'Longitude': item.lng || '-',
-                    'Timestamp': item.timestamp || '-'
-                }));
-                
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.json_to_sheet(excelData);
-                XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
-                
-                const colWidths = [
-                    { wch: 5 }, { wch: 15 }, { wch: 20 }, { wch: 12 },
-                    { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
-                    { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }
-                ];
-                ws['!cols'] = colWidths;
-                
-                let filename = 'Absensi';
-                if (dateFrom && dateTo) {
-                    filename += `_${dateFrom}_sampai_${dateTo}`;
-                } else if (dateFrom) {
-                    filename += `_dari_${dateFrom}`;
-                } else if (dateTo) {
-                    filename += `_sampai_${dateTo}`;
-                } else {
-                    filename += `_${new Date().toISOString().split('T')[0]}`;
-                }
-                if (userFilter) {
-                    filename += `_${userFilter}`;
-                }
-                filename += '.xlsx';
-                
-                XLSX.writeFile(wb, filename);
-                closeModal('export-modal');
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Export Berhasil',
-                    text: `${data.length} data berhasil diexport`,
-                    confirmButtonColor: '#3085d6'
-                });
-                
-            } catch (error) {
-                console.error('Export error:', error);
-                Swal.fire({ icon: 'error', title: 'Gagal Export', text: 'Terjadi kesalahan' });
-            }
-        }
-
-        // ============================================
-        // 27. ADMIN - SETTINGS
-        // ============================================
-        function showSettings() {
-            document.getElementById('settings-modal').classList.remove('hidden');
-            document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
-            document.getElementById('setting-masuk').value = `${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
-            document.getElementById('setting-pulang').value = `${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
-            document.getElementById('setting-retention').value = localStorage.getItem('retention_months') || 3;
-            document.getElementById('setting-face-threshold').value = Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100);
-        }
-
-        function updateSetting(type) {
-            if (type === 'radius') {
-                const value = parseInt(document.getElementById('setting-radius').value);
-                if (value > 0 && value <= 100) {
-                    CONFIG.RADIUS_MAKSIMAL = value;
-                    document.getElementById('radius-info').textContent = `Radius: ${value}m`;
-                    Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter`, timer: 1500 });
-                } else {
-                    Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Radius harus 1-100 meter' });
-                }
-            } else if (type === 'masuk') {
-                const value = document.getElementById('setting-masuk').value;
-                const hour = parseInt(value.split(':')[0]);
-                CONFIG.JAM_MASUK_MAX = hour;
-                document.getElementById('jam-masuk-display').textContent = `Batas ${value}`;
-                Swal.fire({ icon: 'success', title: 'Jam Masuk Diperbarui', text: value, timer: 1500 });
-            } else if (type === 'pulang') {
-                const value = document.getElementById('setting-pulang').value;
-                const hour = parseInt(value.split(':')[0]);
-                CONFIG.JAM_PULANG_MIN = hour;
-                document.getElementById('jam-pulang-display').textContent = `Mulai ${value}`;
-                Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: value, timer: 1500 });
-            } else if (type === 'retention') {
-                const value = parseInt(document.getElementById('setting-retention').value);
-                localStorage.setItem('retention_months', value);
-                document.getElementById('retention-info').textContent = value === 0 ? 'Tidak pernah' : `${value} bulan`;
-                Swal.fire({ icon: 'success', title: 'Retensi Data Diperbarui', text: `Data akan dihapus ${value === 0 ? 'tidak pernah' : value + ' bulan'}`, timer: 1500 });
-                autoDeleteOldData();
-            } else if (type === 'face_threshold') {
-                const value = parseInt(document.getElementById('setting-face-threshold').value);
-                if (value >= 30 && value <= 90) {
-                    CONFIG.FACE_SIMILARITY_THRESHOLD = value / 100;
-                    Swal.fire({ icon: 'success', title: 'Face Threshold Diperbarui', text: `${value}%`, timer: 1500 });
-                } else {
-                    Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Threshold harus 30-90%' });
-                }
-            }
-        }
-
-        async function runCleanupNow() {
-            const result = await Swal.fire({
-                title: 'Bersihkan Data Lama?',
-                text: `Data lebih dari ${localStorage.getItem('retention_months') || 3} bulan akan dihapus.`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Ya, Bersihkan'
-            });
-            
-            if (result.isConfirmed) {
-                await autoDeleteOldData();
-                await loadUserLog();
-                if (currentUser.role === 'admin') {
-                    await loadAllAbsensi();
-                }
-                Swal.fire({ icon: 'success', title: 'Data Dibersihkan', text: 'Data lama telah dihapus' });
-            }
-        }
-
-        async function resetAllData() {
-            const result = await Swal.fire({
-                title: '⚠️ Reset Semua Data',
-                text: 'Hapus semua data absensi? Tindakan ini tidak dapat dibatalkan!',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Ya, Reset'
-            });
-            
-            if (result.isConfirmed) {
-                try {
-                    await deleteAllAbsensi();
-                    await loadUserLog();
-                    if (currentUser.role === 'admin') {
-                        await loadAllAbsensi();
-                    }
-                    updateStorageInfo();
-                    Swal.fire({ icon: 'success', title: 'Data Direset', text: 'Semua data absensi telah dihapus' });
-                } catch (error) {
-                    Swal.fire({ icon: 'error', title: 'Gagal' });
-                }
-            }
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).classList.add('hidden');
-        }
-
-        // ============================================
-        // 28. CLOUD STATUS
-        // ============================================
-        async function checkCloudStatus() {
-            try {
-                const snapshot = await db.collection('absensi').limit(1).get();
-                if (!snapshot.empty) {
-                    document.getElementById('cloud-status').textContent = '✅ Terkoneksi';
-                } else {
-                    document.getElementById('cloud-status').textContent = '☁️ Belum ada data';
-                }
-            } catch (error) {
-                console.error('Cloud check error:', error);
-                document.getElementById('cloud-status').textContent = '⚠️ Gagal koneksi';
-            }
-        }
-
-        // ============================================
-        // 29. INIT
+        // INIT
         // ============================================
         async function init() {
             try {
-                // Init IndexedDB
                 await initDatabase();
                 
-                // Cek admin
                 const users = await getUsers();
                 const adminExists = users.some(u => u.id === 'admin');
                 if (!adminExists) {
@@ -2951,29 +2979,25 @@
                     console.log('✅ Default admin created: admin / admin123');
                 }
                 
-                // Load config
                 const retention = localStorage.getItem('retention_months');
                 if (!retention) {
                     localStorage.setItem('retention_months', '3');
                 }
                 
-                // Load data
                 allAbsensiData = await getAllAbsensi();
                 allAbsensiData.sort((a, b) => b.id - a.id);
                 
-                // Auto delete
                 await autoDeleteOldData();
+                await checkFirebaseConnection();
                 
-                // Check Firebase connection
-                const isConnected = await checkFirebaseConnection();
-                
-                // Update online status
-                updateOnlineStatus();
+                if (firebaseConnected) {
+                    await loadUsersFromFirebase();
+                }
                 
                 console.log('📍 SISTEM ABSENSI - FIREBASE ONLINE');
                 console.log(`📁 Project: ${firebaseConfig.projectId}`);
                 console.log(`📍 Radius: ${CONFIG.RADIUS_MAKSIMAL}m`);
-                console.log(`📡 Firebase: ${isConnected ? '✅ ONLINE' : '❌ OFFLINE'}`);
+                console.log(`📡 Firebase: ${firebaseConnected ? '✅ ONLINE' : '❌ OFFLINE'}`);
                 console.log('✅ Sistem siap!');
                 
             } catch (error) {
@@ -2981,25 +3005,17 @@
             }
         }
 
-        // Cleanup
         window.addEventListener('beforeunload', () => {
             if (watchId) navigator.geolocation.clearWatch(watchId);
             if (video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
             if (regVideo && regVideo.srcObject) regVideo.srcObject.getTracks().forEach(t => t.stop());
         });
 
-        // Start
         init();
 
         console.log('📌 Default Admin: admin / admin123');
-        console.log('📌 Firebase Status: Cek indikator di halaman login');
-        console.log('📌 Fitur:');
-        console.log('  ✅ Kompresi 50% + Resize 320x240');
-        console.log('  ✅ Auto-delete data > 3 bulan');
-        console.log('  ✅ Sync ke Firebase (tanpa foto besar)');
-        console.log('  ✅ Online/Offline detection');
-        console.log('  ✅ Ganti Password Admin');
-        console.log('  ✅ Total memori turun hingga 95%');
+        console.log('📌 Semua fungsi lengkap!');
+        console.log('📌 Data tersimpan di Firebase Cloud');
     </script>
 </body>
 </html>
