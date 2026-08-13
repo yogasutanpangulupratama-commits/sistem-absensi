@@ -1173,14 +1173,29 @@
             });
         }
 
-        function saveConfig(key, value) {
-            return new Promise((resolve, reject) => {
+        // Simpan config lokal (IndexedDB) sekaligus ke Firestore (online, tersinkron ke semua device)
+        async function saveConfig(key, value) {
+            // 1. Simpan lokal dulu (supaya tetap jalan walau offline)
+            await new Promise((resolve, reject) => {
                 const tx = db_local.transaction(['config'], 'readwrite');
                 const store = tx.objectStore('config');
                 const request = store.put({ key, value });
                 request.onsuccess = () => resolve();
                 request.onerror = () => reject(request.error);
             });
+
+            // 2. Simpan ke Firestore supaya semua device (admin & user) dapat nilai yang sama
+            if (firebaseConnected) {
+                try {
+                    const db = firebase.firestore();
+                    await db.collection('settings').doc('app_config').set({
+                        [key]: value,
+                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                } catch (error) {
+                    console.warn('Gagal sync setting ke Firestore:', error);
+                }
+            }
         }
 
         // ============================================
@@ -1198,21 +1213,42 @@
             IMAGE_HEIGHT: 240
         };
 
-        // Load config dari IndexedDB
+        // Load config: prioritaskan Firestore (online, sinkron semua device), fallback ke IndexedDB lokal
         async function loadConfigFromDB() {
             try {
-                const radius = await getConfig('radius');
-                if (radius !== null) CONFIG.RADIUS_MAKSIMAL = parseInt(radius);
-                
-                const jamMasuk = await getConfig('jam_masuk');
-                if (jamMasuk !== null) CONFIG.JAM_MASUK_MAX = parseInt(jamMasuk);
-                
-                const jamPulang = await getConfig('jam_pulang');
-                if (jamPulang !== null) CONFIG.JAM_PULANG_MIN = parseInt(jamPulang);
-                
-                const threshold = await getConfig('face_threshold');
-                if (threshold !== null) CONFIG.FACE_SIMILARITY_THRESHOLD = parseInt(threshold) / 100;
-                
+                let remoteConfig = null;
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        const doc = await db.collection('settings').doc('app_config').get();
+                        if (doc.exists) remoteConfig = doc.data();
+                    } catch (error) {
+                        console.warn('Gagal ambil setting dari Firestore, pakai lokal:', error);
+                    }
+                }
+
+                const radius = remoteConfig?.radius ?? await getConfig('radius');
+                if (radius !== null && radius !== undefined) CONFIG.RADIUS_MAKSIMAL = parseInt(radius);
+
+                const jamMasuk = remoteConfig?.jam_masuk ?? await getConfig('jam_masuk');
+                if (jamMasuk !== null && jamMasuk !== undefined) CONFIG.JAM_MASUK_MAX = parseInt(jamMasuk);
+
+                const jamPulang = remoteConfig?.jam_pulang ?? await getConfig('jam_pulang');
+                if (jamPulang !== null && jamPulang !== undefined) CONFIG.JAM_PULANG_MIN = parseInt(jamPulang);
+
+                const threshold = remoteConfig?.face_threshold ?? await getConfig('face_threshold');
+                if (threshold !== null && threshold !== undefined) CONFIG.FACE_SIMILARITY_THRESHOLD = parseInt(threshold) / 100;
+
+                // Simpan hasil dari Firestore ke IndexedDB lokal juga, buat cadangan offline
+                if (remoteConfig) {
+                    if (remoteConfig.radius !== undefined) await new Promise((resolve, reject) => {
+                        const tx = db_local.transaction(['config'], 'readwrite');
+                        tx.objectStore('config').put({ key: 'radius', value: remoteConfig.radius });
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                }
+
                 console.log('📌 Config loaded:', CONFIG);
                 
                 document.getElementById('radius-info').textContent = `Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
@@ -2010,11 +2046,11 @@
                                 ${hasFaces ? `<span class="text-xs text-green-600 cursor-pointer hover:underline" onclick="showUserFaces('${user.id}')"><i class="fas fa-camera mr-1"></i>Lihat Foto</span>` : '<span class="text-xs text-slate-400">Tidak ada foto</span>'}
                             </div>
                             <div class="flex gap-1">
+                                <button onclick="showResetPassword('${user.id}')" 
+                                        class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
+                                    <i class="fas fa-key"></i>
+                                </button>
                                 ${!isDefault ? `
-                                    <button onclick="showResetPassword('${user.id}')" 
-                                            class="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs">
-                                        <i class="fas fa-key"></i>
-                                    </button>
                                     <button onclick="deleteUserAction('${user.id}')" 
                                             class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs">
                                         <i class="fas fa-trash"></i>
