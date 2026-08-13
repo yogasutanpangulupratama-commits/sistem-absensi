@@ -439,7 +439,7 @@
                     <span class="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span> Kantor
                     <span class="inline-block w-2 h-2 bg-blue-500 rounded-full ml-2 mr-1"></span> Anda
                 </div>
-                <div class="absolute top-2 right-2 text-white text-xs bg-black/30 px-2 py-1 rounded">Radius 20m</div>
+                <div id="radius-badge" class="absolute top-2 right-2 text-white text-xs bg-black/30 px-2 py-1 rounded">Radius 20m</div>
                 <div id="status-lokasi" class="absolute bottom-2 right-2 text-xs font-bold px-2 py-1 rounded bg-black/50 text-white">Mencari lokasi...</div>
             </div>
 
@@ -1252,6 +1252,8 @@
                 console.log('📌 Config loaded:', CONFIG);
                 
                 document.getElementById('radius-info').textContent = `Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
+                const radiusBadgeEl = document.getElementById('radius-badge');
+                if (radiusBadgeEl) radiusBadgeEl.textContent = `Radius ${CONFIG.RADIUS_MAKSIMAL}m`;
                 document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
                 document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
                 
@@ -1270,6 +1272,8 @@
                     CONFIG.RADIUS_MAKSIMAL = value;
                     await saveConfig('radius', value);
                     document.getElementById('radius-info').textContent = `Radius: ${value}m`;
+                    const radiusBadgeEl2 = document.getElementById('radius-badge');
+                    if (radiusBadgeEl2) radiusBadgeEl2.textContent = `Radius ${value}m`;
                     Swal.fire({ icon: 'success', title: 'Radius Diperbarui', text: `${value} meter (tersimpan permanen)`, timer: 2000 });
                 } else {
                     Swal.fire({ icon: 'warning', title: 'Invalid', text: 'Radius harus 1-100 meter' });
@@ -2939,6 +2943,8 @@
             }
 
             document.getElementById('radius-info').textContent = `Akurasi: ${Math.round(accuracy || 0)}m | Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
+            const radiusBadgeEl3 = document.getElementById('radius-badge');
+            if (radiusBadgeEl3) radiusBadgeEl3.textContent = `Radius ${CONFIG.RADIUS_MAKSIMAL}m`;
         }
 
         function updateMiniMap(jarak) {
@@ -3333,12 +3339,14 @@
         async function init() {
             try {
                 await initDatabase();
-                await loadConfigFromDB();
                 
-                // 1. Cek koneksi Firebase LEBIH AWAL agar status online/offline dipastikan dulu
+                // 1. Cek koneksi Firebase LEBIH DULU, supaya loadConfigFromDB tahu status online/offline yang BENAR
                 await checkFirebaseConnection();
                 
-                // 2. Cek & Buat akun Admin jika belum ada
+                // 2. Baru ambil pengaturan (radius, jam, dll) — akan prioritaskan Firestore jika online
+                await loadConfigFromDB();
+                
+                // 3. Cek & Buat akun Admin jika belum ada
                 const users = await getUsers();
                 const adminExists = users.some(u => u.id === 'admin');
                 if (!adminExists) {
