@@ -2610,38 +2610,43 @@
         // AUTO DELETE OLD DATA
         // ============================================
         async function autoDeleteOldData() {
-            try {
-                const retentionMonths = parseInt(localStorage.getItem('retention_months')) || 3;
-                if (retentionMonths === 0) return;
-                
-                const cutoffDate = new Date();
-                cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
-                
-                const allData = await getAllAbsensi();
-                const oldData = allData.filter(item => {
-                    const itemDate = new Date(item.tanggal);
-                    return itemDate < cutoffDate;
-                });
-                
-                if (oldData.length === 0) return;
-                
-                let deleted = 0;
-                for (const item of oldData) {
-                    const tx = db_local.transaction(['absensi'], 'readwrite');
-                    const store = tx.objectStore('absensi');
-                    await new Promise((resolve, reject) => {
-                        const request = store.delete(item.id);
-                        request.onsuccess = () => { deleted++; resolve(); };
-                        request.onerror = () => reject(request.error);
-                    });
-                }
-                
-                console.log(`🧹 Auto delete: ${deleted} data lama dihapus (retensi ${retentionMonths} bulan)`);
-                
-            } catch (error) {
-                console.error('Auto delete error:', error);
-            }
+    try {
+        const retentionMonths = parseInt(localStorage.getItem('retention_months')) || 3;
+        if (retentionMonths === 0) return;
+        
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - retentionMonths);
+        
+        const allData = await getAllAbsensi();
+        const oldData = allData.filter(item => {
+            const itemDate = new Date(item.tanggal);
+            return itemDate < cutoffDate;
+        });
+        
+        if (oldData.length === 0) return;
+        
+        // Pastikan koneksi IndexedDB tersedia
+        if (typeof db_local === 'undefined' || !db_local) {
+            console.warn('db_local belum siap, lewati auto delete');
+            return;
         }
+
+        let deleted = 0;
+        for (const item of oldData) {
+            const tx = db_local.transaction(['absensi'], 'readwrite');
+            const store = tx.objectStore('absensi');
+            await new Promise((resolve, reject) => {
+                const request = store.delete(item.id);
+                request.onsuccess = () => { deleted++; resolve(); };
+                request.onerror = () => reject(request.error);
+            });
+        }
+        
+        console.log(`🧹 Auto delete: ${deleted} data lama dihapus`);
+    } catch (error) {
+        console.error('Auto delete error:', error);
+    }
+}
 
         // ============================================
         // OPTIMIZED IMAGE CAPTURE
@@ -3294,28 +3299,9 @@
 
         console.log('📌 Default Admin: admin / admin123');
         console.log('📌 Sistem menggunakan Firestore (tanpa Storage) - GRATIS!');
+    </script>
 
-// Fungsi untuk membuka modal/halaman Verifikasi User
-async function showPendingUsers() {
-    try {
-        const modal = document.getElementById('modal-verifikasi'); // Sesuaikan ID modal verifikasi Anda
-        if (modal) {
-            modal.classList.remove('hidden');
-        } else {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Modal verifikasi tidak ditemukan!' });
-            return;
-        }
-
-        // Jalankan logika untuk memuat data user yang belum diverifikasi di sini
-        // contoh: await loadPendingUsersData();
-
-    } catch (error) {
-        console.error('Error saat membuka verifikasi:', error);
-        Swal.fire({ icon: 'error', title: 'Error', text: error.message });
-    }
-}
-    
-<!-- 1. KODE HTML MODAL VERIFIKASI (Tambahkan ini sebelum <script>) -->
+    <!-- Modal Verifikasi User -->
     <div id="modal-verifikasi" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
         <div class="relative p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center pb-3 border-b">
@@ -3333,7 +3319,6 @@ async function showPendingUsers() {
         </div>
     </div>
 
-    <!-- 2. TAG SCRIPT -->
     <script>
         // Fungsi untuk membuka modal/halaman Verifikasi User
         async function showPendingUsers() {
