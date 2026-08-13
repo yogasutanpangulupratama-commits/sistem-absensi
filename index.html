@@ -3294,6 +3294,26 @@
 
         console.log('📌 Default Admin: admin / admin123');
         console.log('📌 Sistem menggunakan Firestore (tanpa Storage) - GRATIS!');
+
+// Fungsi untuk membuka modal/halaman Verifikasi User
+async function showPendingUsers() {
+    try {
+        const modal = document.getElementById('modal-verifikasi'); // Sesuaikan ID modal verifikasi Anda
+        if (modal) {
+            modal.classList.remove('hidden');
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Modal verifikasi tidak ditemukan!' });
+            return;
+        }
+
+        // Jalankan logika untuk memuat data user yang belum diverifikasi di sini
+        // contoh: await loadPendingUsersData();
+
+    } catch (error) {
+        console.error('Error saat membuka verifikasi:', error);
+        Swal.fire({ icon: 'error', title: 'Error', text: error.message });
+    }
+}
     </script>
 </body>
 </html>
