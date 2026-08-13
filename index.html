@@ -2007,7 +2007,7 @@
                                     ${isAdmin ? '👑 Admin' : '👤 User'}
                                 </span>
                                 <span class="text-xs ${statusColor}">${statusBadge} ${user.status}</span>
-                                ${hasFaces ? '<span class="text-xs text-green-500">📸</span>' : ''}
+                                ${hasFaces ? `<span class="text-xs text-green-600 cursor-pointer hover:underline" onclick="showUserFaces('${user.id}')"><i class="fas fa-camera mr-1"></i>Lihat Foto</span>` : '<span class="text-xs text-slate-400">Tidak ada foto</span>'}
                             </div>
                             <div class="flex gap-1">
                                 ${!isDefault ? `
@@ -2031,6 +2031,62 @@
             } catch (error) {
                 console.error('Error loading users:', error);
                 list.innerHTML = '<p class="text-center text-red-500 py-2">Gagal memuat data</p>';
+            }
+        }
+
+        // ============================================
+        // LIHAT FOTO WAJAH USER (setelah approve/reject)
+        // ============================================
+        async function showUserFaces(userId) {
+            try {
+                showLoading('Memuat...', 'Mengambil foto wajah user');
+
+                let user = null;
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        const doc = await db.collection('users').doc(userId).get();
+                        if (doc.exists) user = doc.data();
+                    } catch (error) {
+                        console.warn('Firebase read error, fallback to local:', error);
+                    }
+                }
+                if (!user) {
+                    user = await getUserById(userId);
+                }
+
+                hideLoading();
+
+                if (!user || !user.faces || Object.keys(user.faces).length === 0) {
+                    Swal.fire({ icon: 'info', title: 'Belum Ada Foto', text: `User ${userId} belum memiliki foto wajah tersimpan.` });
+                    return;
+                }
+
+                const faceEntries = Object.entries(user.faces);
+                const galleryHtml = `
+                    <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center;">
+                        ${faceEntries.map(([type, url]) => `
+                            <div style="text-align:center;">
+                                <img src="${url}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;"
+                                     onclick="Swal.fire({ imageUrl: '${url}', imageWidth: 400, imageHeight: 400, title: 'Foto ${type}', confirmButtonColor: '#3085d6' })">
+                                <p style="font-size:12px;color:#64748b;margin-top:4px;">${type}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                Swal.fire({
+                    title: `📸 Foto Wajah - ${userId}`,
+                    html: galleryHtml,
+                    width: 520,
+                    confirmButtonText: 'Tutup',
+                    confirmButtonColor: '#3085d6'
+                });
+
+            } catch (error) {
+                hideLoading();
+                console.error('Error loading user faces:', error);
+                Swal.fire({ icon: 'error', title: 'Error', text: error.message });
             }
         }
 
