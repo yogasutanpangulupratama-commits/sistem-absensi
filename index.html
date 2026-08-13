@@ -1849,41 +1849,95 @@ async function checkFirebaseConnection() {
         }
 
         async function finishFaceRegistration() {
-    const { id, name, password } = window._signupData;
-    
-    try {
-        // 1. Simpan ke Local IndexedDB
-        await addUser(id, name, password, 'user', 'pending');
-        
-        // 2. Simpan face data ke Local
-        for (const [type, image] of Object.entries(capturedFaces)) {
-            await saveFaceData(id, type, image);
+            const { id, name, password } = window._signupData;
+            
+            try {
+                // 1. Simpan ke Local IndexedDB
+                await addUser(id, name, password, 'user', 'pending');
+                
+                // 2. Simpan face data ke Local
+                for (const [type, image] of Object.entries(capturedFaces)) {
+                    await saveFaceData(id, type, image);
+                }
+                
+                // ==========================================
+                // 3. SIMPAN KE FIRESTORE (GRATIS)
+                // ==========================================
+                if (firebaseConnected) {
+                    try {
+                        const db = firebase.firestore();
+                        
+                        // Simpan data user KELENGKAPAN dengan foto wajahnya langsung ke Firestore
+                        await db.collection('users').doc(id).set({
+                            id: id,
+                            name: name,
+                            password: password,
+                            role: 'user',
+                            status: 'pending',
+                            faces: capturedFaces, // <--- Foto wajah (Base64) disimpan di sini
+                            created_at: new Date().toISOString(),
+                            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        
+                        console.log('✅ User dan Foto berhasil disimpan ke Firestore (Gratis)');
+                        
+                        // Update total users di UI
+                        const snapshot = await db.collection('users').get();
+                        document.getElementById('total-users').textContent = snapshot.size;
+                        
+                    } catch (firebaseError) {
+                        console.warn('Firebase save error:', firebaseError);
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Sebagian Data Tersimpan Lokal',
+                            text: 'Gagal menyimpan ke cloud. Data tetap aman di lokal.',
+                            confirmButtonColor: '#f39c12'
+                        });
+                    }
+                } else {
+                    console.warn('⚠️ Firebase offline, data hanya disimpan lokal');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Mode Offline',
+                        text: 'Data disimpan lokal. Admin tidak akan melihat sampai Anda online dan sync.',
+                        confirmButtonColor: '#f39c12'
+                    });
+                }
+                
+                closeFaceReg();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Pendaftaran Berhasil!',
+                    html: `
+                        <p>Akun <b>${id}</b> telah berhasil didaftarkan.</p>
+                        <p class="text-yellow-600 mt-2">⏳ Menunggu verifikasi dari admin.</p>
+                        <p class="text-xs text-slate-400 mt-2">✅ Data tersimpan di cloud, admin bisa melihat dari mana saja.</p>
+                    `,
+                    confirmButtonColor: '#3085d6'
+                });
+                
+                // Reset form
+                document.getElementById('signup-id').value = '';
+                document.getElementById('signup-name').value = '';
+                document.getElementById('signup-password').value = '';
+                showLogin();
+                
+                // Refresh admin panel jika terbuka
+                if (currentUser && currentUser.role === 'admin') {
+                    await loadPendingUsers();
+                    await loadUserList();
+                }
+                
+            } catch (error) {
+                console.error('Registration error:', error);
+                Swal.fire({ 
+                    icon: 'error', 
+                    title: 'Gagal Mendaftar', 
+                    text: 'Terjadi kesalahan: ' + error.message 
+                });
+            }
         }
-        
-        // ==========================================
-        // 3. SIMPAN KE FIREBASE (KRUSIAL!)
-        // ==========================================
-        if (firebaseConnected) {
-    try {
-        const db = firebase.firestore();
-        
-        // Simpan data user KELENGKAPAN dengan foto wajahnya langsung ke Firestore
-        await db.collection('users').doc(id).set({
-            id: id,
-            name: name,
-            password: password,
-            role: 'user',
-            status: 'pending',
-            faces: capturedFaces, // <--- Foto wajah (Base64) disimpan langsung di sini
-            created_at: new Date().toISOString(),
-            updated_at: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        console.log('✅ User dan Foto berhasil disimpan ke Firestore (Gratis)');
-    } catch (firebaseError) {
-        console.warn('Firebase save error:', firebaseError);
-    }
-}
                                 
                 // Update total users di UI
                 const snapshot = await db.collection('users').get();
