@@ -1864,48 +1864,27 @@ async function checkFirebaseConnection() {
         // 3. SIMPAN KE FIREBASE (KRUSIAL!)
         // ==========================================
         if (firebaseConnected) {
-            try {
-                const db = firebase.firestore();
-                
-                // Cek apakah user sudah ada di Firebase
-                const docRef = db.collection('users').doc(id);
-                const doc = await docRef.get();
-                
-                if (!doc.exists) {
-                    // User belum ada, buat baru
-                    await docRef.set({
-                        id: id,
-                        name: name,
-                        password: password,
-                        role: 'user',
-                        status: 'pending',
-                        created_at: new Date().toISOString(),
-                        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    console.log('✅ User saved to Firebase:', id);
-                } else {
-                    console.log('ℹ️ User already exists in Firebase:', id);
-                }
-                
-                // 4. Upload foto wajah ke Firebase Storage
-                const storage = firebase.storage();
-                for (const [type, image] of Object.entries(capturedFaces)) {
-                    try {
-                        const storageRef = storage.ref(`faces/${id}/${type}.jpg`);
-                        // Cek apakah file sudah ada
-                        try {
-                            await storageRef.getDownloadURL();
-                            console.log(`ℹ️ Face ${type} already exists, skipping`);
-                        } catch {
-                            // File tidak ada, upload
-                            await storageRef.putString(image, 'data_url');
-                            console.log(`✅ Face ${type} uploaded to Firebase Storage`);
-                        }
-                    } catch (uploadError) {
-                        console.warn(`Failed to upload face ${type}:`, uploadError);
-                    }
-                }
-                
+    try {
+        const db = firebase.firestore();
+        
+        // Simpan data user KELENGKAPAN dengan foto wajahnya langsung ke Firestore
+        await db.collection('users').doc(id).set({
+            id: id,
+            name: name,
+            password: password,
+            role: 'user',
+            status: 'pending',
+            faces: capturedFaces, // <--- Foto wajah (Base64) disimpan langsung di sini
+            created_at: new Date().toISOString(),
+            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ User dan Foto berhasil disimpan ke Firestore (Gratis)');
+    } catch (firebaseError) {
+        console.warn('Firebase save error:', firebaseError);
+    }
+}
+                                
                 // Update total users di UI
                 const snapshot = await db.collection('users').get();
                 document.getElementById('total-users').textContent = snapshot.size;
@@ -1981,7 +1960,7 @@ async function showPendingUsers() {
 }
 
 // ============================================
-// LOAD PENDING USERS - PERBAIKAN
+// LOAD PENDING USERS - PERBAIKAN (FULL FIRESTORE)
 // ============================================
 async function loadPendingUsers() {
     const list = document.getElementById('pending-users-list');
@@ -2033,24 +2012,15 @@ async function loadPendingUsers() {
         // Tampilkan daftar user
         let html = '';
         for (const user of users) {
-            // Coba ambil foto dari Firebase Storage
+            
+            // --- BAGIAN YANG DIUBAH: AMBIL FOTO LANGSUNG DARI DATABASE ---
             let faceImages = [];
-            if (firebaseConnected) {
-                try {
-                    const storage = firebase.storage();
-                    const types = ['front', 'left', 'right', 'up', 'down'];
-                    for (const type of types) {
-                        try {
-                            const url = await storage.ref(`faces/${user.id}/${type}.jpg`).getDownloadURL();
-                            faceImages.push({ type, url });
-                        } catch {
-                            // Foto tidak ada
-                        }
-                    }
-                } catch (storageError) {
-                    console.warn('Storage error:', storageError);
+            if (user.faces) {
+                for (const [type, url] of Object.entries(user.faces)) {
+                    faceImages.push({ type, url });
                 }
             }
+            // -------------------------------------------------------------
             
             html += `
                 <div class="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 mb-3 border border-slate-200 dark:border-slate-600">
@@ -2060,7 +2030,7 @@ async function loadPendingUsers() {
                             <p class="text-sm text-slate-500">${user.name || '-'}</p>
                             <p class="text-xs text-slate-400">Daftar: ${user.created_at ? new Date(user.created_at).toLocaleDateString('id-ID') : '-'}</p>
                             <p class="text-xs text-slate-400">Status: <span class="text-yellow-600 font-bold">⏳ Pending</span></p>
-                            ${faceImages.length > 0 ? `<p class="text-xs text-green-500">✅ ${faceImages.length} foto wajah tersimpan</p>` : '<p class="text-xs text-yellow-500">⚠️ Belum ada foto wajah</p>'}
+                            ${faceImages.length > 0 ? `<p class="text-xs text-green-500">✅ ${faceImages.length} foto wajah tersimpan di Database</p>` : '<p class="text-xs text-yellow-500">⚠️ Belum ada foto wajah</p>'}
                         </div>
                         <div class="flex gap-2">
                             <button onclick="verifyUser('${user.id}', true)" 
