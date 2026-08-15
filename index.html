@@ -3351,53 +3351,46 @@
         }
 
         async function faceVerificationStep(jenis, jarak, status) {
-            showLoading('Verifikasi Wajah...', 'Pastikan wajah terlihat jelas di kamera');
-            
-            const photoData = ambilFotoOptimasi(CONFIG.IMAGE_QUALITY);
-            const result = await verifyFace(photoData);
-            
-            if (!result.match) {
-                hideLoading();
-                const auditPhoto = ambilFotoOptimasi(0.3);
-                const data = {
-                    user_id: currentUser.id,
-                    user_name: currentUser.name,
-                    jenis_absen: jenis,
-                    waktu: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                    tanggal: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }),
-                    status: 'Wajah Tidak Cocok',
-                    jarak: jarak,
-                    foto: auditPhoto,
-                    face_score: result.score || 0,
-                    lat: currentPosition.lat,
-                    lng: currentPosition.lng,
-                    timestamp: new Date().toISOString(),
-                    is_audit: true
-                };
-                
-                await saveAbsensi(data);
-                await saveAbsensiToFirebase(data);
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: '❌ Verifikasi Wajah Gagal',
-                    html: `
-                        <div class="text-left">
-                            <p><b>Status:</b> Wajah tidak cocok dengan data registrasi</p>
-                            <p class="text-xs text-slate-400 mt-2">Skor kemiripan: ${Math.round((result.score || 0) * 100)}%</p>
-                            <p class="text-xs text-slate-400">Minimal: ${Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100)}%</p>
-                        </div>
-                    `,
-                    confirmButtonColor: '#d33'
-                });
-                return;
-            }
-            
-            const shouldSavePhoto = result.score < 0.6;
-            const finalPhoto = shouldSavePhoto ? photoData : null;
-            
-            lanjutkanAbsen(jenis, jarak, status, finalPhoto, result.score);
-        }
+    showLoading('Verifikasi Wajah...', 'Pastikan wajah terlihat jelas di kamera');
+    
+    // 1. Ambil foto dari kamera saat ini
+    const photoData = ambilFotoOptimasi(CONFIG.IMAGE_QUALITY);
+    
+    // 2. Bandingkan dengan 5 foto yang ada di database (memanggil fungsi verifyFace asli)
+    const result = await verifyFace(photoData);
+    
+    // 3. LOGIKA JIKA WAJAH TIDAK COCOK
+    if (!result.match) {
+        hideLoading();
+        
+        // Munculkan notifikasi error dan HENTIKAN proses.
+        // Tidak ada fungsi saveAbsensi() yang dipanggil, sehingga Firebase aman dari sampah data.
+        Swal.fire({
+            icon: 'error',
+            title: '❌ Verifikasi Wajah Gagal',
+            html: `
+                <div class="text-left">
+                    <p><b>Status:</b> Wajah tidak cocok dengan data registrasi.</p>
+                    <p><b>Aksi:</b> Absensi Dibatalkan.</p>
+                    <p class="text-xs text-slate-400 mt-2">Skor kemiripan tertinggi: ${Math.round((result.score || 0) * 100)}%</p>
+                    <p class="text-xs text-slate-400">Minimal: ${Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100)}%</p>
+                </div>
+            `,
+            confirmButtonColor: '#d33'
+        });
+        
+        // Return menghentikan eksekusi kode seketika
+        return; 
+    }
+    
+    // 4. LOGIKA JIKA WAJAH COCOK
+    // Set finalPhoto menjadi null. Ini memastikan aplikasi hanya mengirim data Teks (Jam, Status, Jarak)
+    // ke Firestore tanpa melampirkan string Base64 gambar harian, sehingga memori sangat hemat.
+    const finalPhoto = null; 
+    
+    // Lanjutkan proses pencatatan absen
+    lanjutkanAbsen(jenis, jarak, status, finalPhoto, result.score);
+}
 
         function lanjutkanAbsen(jenis, jarak, status, foto, faceScore) {
             isProcessing = true;
