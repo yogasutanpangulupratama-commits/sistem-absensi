@@ -3383,37 +3383,49 @@
             }
         }
 
-        async function faceVerificationStep(jenis, jarak, status) {
+        async function faceVerificationStep(jenis, jarak, status, percobaan = 1) {
     showLoading('Verifikasi Wajah...', 'Pastikan wajah terlihat jelas di kamera');
     
     // 1. Ambil foto dari kamera saat ini
     const photoData = ambilFotoOptimasi(CONFIG.IMAGE_QUALITY);
     
-    // 2. Bandingkan dengan 5 foto yang ada di database (memanggil fungsi verifyFace asli)
+    // 2. Bandingkan HANYA dengan foto-foto wajah yang tersimpan saat verifikasi pendaftaran.
+    //    (verifyFace mengambil dari IndexedDB lokal, fallback ke Firestore — foto harian TIDAK
+    //    pernah disimpan, sehingga foto pendaftaran asli tetap dipertahankan).
     const result = await verifyFace(photoData);
     
-    // 3. LOGIKA JIKA WAJAH TIDAK COCOK
+    // 3. LOGIKA JIKA WAJAH TIDAK COCOK — beri kesempatan mengulang (Coba Lagi)
     if (!result.match) {
         hideLoading();
         
-        // Munculkan notifikasi error dan HENTIKAN proses.
-        // Tidak ada fungsi saveAbsensi() yang dipanggil, sehingga Firebase aman dari sampah data.
+        // Absensi TIDAK dicatat selama wajah belum cocok.
+        // User bisa mengulang verifikasi atau membatalkan absen.
         Swal.fire({
             icon: 'error',
             title: '❌ Verifikasi Wajah Gagal',
             html: `
                 <div class="text-left">
-                    <p><b>Status:</b> Wajah tidak cocok dengan data registrasi.</p>
-                    <p><b>Aksi:</b> Absensi Dibatalkan.</p>
+                    <p><b>Status:</b> Wajah tidak cocok dengan foto pendaftaran.</p>
+                    <p><b>Aksi:</b> Absensi belum dicatat — silakan coba lagi.</p>
+                    <p class="text-xs text-slate-400 mt-2">Percobaan ke-${percobaan}</p>
                     <p class="text-xs text-slate-400 mt-2">Skor kemiripan tertinggi: ${Math.round((result.score || 0) * 100)}%</p>
                     <p class="text-xs text-slate-400">Minimal: ${Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100)}%</p>
                 </div>
             `,
-            confirmButtonColor: '#d33'
+            confirmButtonText: '🔄 Coba Lagi',
+            showCancelButton: true,
+            cancelButtonText: 'Batalkan Absen',
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33'
+        }).then(choice => {
+            // Jika user memilih "Coba Lagi", ulangi verifikasi wajah dari awal
+            if (choice.isConfirmed) {
+                faceVerificationStep(jenis, jarak, status, percobaan + 1);
+            }
+            // Jika batal, proses berhenti — tidak ada data yang disimpan
         });
         
-        // Return menghentikan eksekusi kode seketika
-        return; 
+        return;
     }
     
     // 4. LOGIKA JIKA WAJAH COCOK
