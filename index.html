@@ -1053,8 +1053,10 @@
                         if (!doc.exists) return;
                         const cfg = doc.data() || {};
                         if (cfg.radius != null) CONFIG.RADIUS_MAKSIMAL = parseInt(cfg.radius);
-                        if (cfg.jam_masuk != null) CONFIG.JAM_MASUK_MAX = parseInt(cfg.jam_masuk);
-                        if (cfg.jam_pulang != null) CONFIG.JAM_PULANG_MIN = parseInt(cfg.jam_pulang);
+                        const masukMins = toMinutesSinceMidnight(cfg.jam_masuk);
+                        if (masukMins != null) CONFIG.JAM_MASUK_MAX = masukMins;
+                        const pulangMins = toMinutesSinceMidnight(cfg.jam_pulang);
+                        if (pulangMins != null) CONFIG.JAM_PULANG_MIN = pulangMins;
                         if (cfg.face_threshold != null) CONFIG.FACE_SIMILARITY_THRESHOLD = parseInt(cfg.face_threshold) / 100;
                         loadConfigFromDB();
                     }, err => console.warn('Realtime settings:', err.message));
@@ -1360,13 +1362,25 @@
             KANTOR_LAT: -6.1923239,
             KANTOR_LNG: 106.9701343,
             RADIUS_MAKSIMAL: 20,
-            JAM_MASUK_MAX: 8,
-            JAM_PULANG_MIN: 16,
+            JAM_MASUK_MAX: 480,  // 08:00 (menit sejak tengah malam)
+            JAM_PULANG_MIN: 960, // 16:00 (menit sejak tengah malam)
             FACE_SIMILARITY_THRESHOLD: 0.6,
             IMAGE_QUALITY: 0.5,
             IMAGE_WIDTH: 320,
             IMAGE_HEIGHT: 240
         };
+
+        // Konversi nilai jam dari config (nilai lama = jam <24, nilai baru = menit) ke menit sejak tengah malam
+        function toMinutesSinceMidnight(value) {
+            const n = parseInt(value);
+            if (Number.isNaN(n) || n < 0) return null;
+            return n < 24 ? n * 60 : n;
+        }
+
+        function fmtHHMM(mins) {
+            const m = Math.max(0, parseInt(mins) || 0);
+            return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+        }
 
         // Load config: prioritaskan Firestore (online, sinkron semua device), fallback ke IndexedDB lokal
         async function loadConfigFromDB() {
@@ -1386,10 +1400,12 @@
                 if (radius !== null && radius !== undefined) CONFIG.RADIUS_MAKSIMAL = parseInt(radius);
 
                 const jamMasuk = remoteConfig?.jam_masuk ?? await getConfig('jam_masuk');
-                if (jamMasuk !== null && jamMasuk !== undefined) CONFIG.JAM_MASUK_MAX = parseInt(jamMasuk);
+                const jamMasukMins = toMinutesSinceMidnight(jamMasuk);
+                if (jamMasukMins != null) CONFIG.JAM_MASUK_MAX = jamMasukMins;
 
                 const jamPulang = remoteConfig?.jam_pulang ?? await getConfig('jam_pulang');
-                if (jamPulang !== null && jamPulang !== undefined) CONFIG.JAM_PULANG_MIN = parseInt(jamPulang);
+                const jamPulangMins = toMinutesSinceMidnight(jamPulang);
+                if (jamPulangMins != null) CONFIG.JAM_PULANG_MIN = jamPulangMins;
 
                 const threshold = remoteConfig?.face_threshold ?? await getConfig('face_threshold');
                 if (threshold !== null && threshold !== undefined) CONFIG.FACE_SIMILARITY_THRESHOLD = parseInt(threshold) / 100;
@@ -1409,8 +1425,8 @@
                 document.getElementById('radius-info').textContent = `Radius: ${CONFIG.RADIUS_MAKSIMAL}m`;
                 const radiusBadgeEl = document.getElementById('radius-badge');
                 if (radiusBadgeEl) radiusBadgeEl.textContent = `Radius ${CONFIG.RADIUS_MAKSIMAL}m`;
-                document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
-                document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+                document.getElementById('jam-masuk-display').textContent = `Batas ${fmtHHMM(CONFIG.JAM_MASUK_MAX)}`;
+                document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(CONFIG.JAM_PULANG_MIN)}`;
                 
             } catch (error) {
                 console.warn('Error loading config:', error);
@@ -1435,17 +1451,19 @@
                 }
             } else if (type === 'masuk') {
                 const value = document.getElementById('setting-masuk').value;
-                const hour = parseInt(value.split(':')[0]);
-                CONFIG.JAM_MASUK_MAX = hour;
-                await saveConfig('jam_masuk', hour);
-                document.getElementById('jam-masuk-display').textContent = `Batas ${value}`;
+                const [jh, jm] = value.split(':').map(Number);
+                const masukMins = (jh || 0) * 60 + (jm || 0);
+                CONFIG.JAM_MASUK_MAX = masukMins;
+                await saveConfig('jam_masuk', masukMins);
+                document.getElementById('jam-masuk-display').textContent = `Batas ${fmtHHMM(masukMins)}`;
                 Swal.fire({ icon: 'success', title: 'Jam Masuk Diperbarui', text: `${value} (tersimpan permanen)`, timer: 2000 });
             } else if (type === 'pulang') {
                 const value = document.getElementById('setting-pulang').value;
-                const hour = parseInt(value.split(':')[0]);
-                CONFIG.JAM_PULANG_MIN = hour;
-                await saveConfig('jam_pulang', hour);
-                document.getElementById('jam-pulang-display').textContent = `Mulai ${value}`;
+                const [ph, pm] = value.split(':').map(Number);
+                const pulangMins = (ph || 0) * 60 + (pm || 0);
+                CONFIG.JAM_PULANG_MIN = pulangMins;
+                await saveConfig('jam_pulang', pulangMins);
+                document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(pulangMins)}`;
                 Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: `${value} (tersimpan permanen)`, timer: 2000 });
             } else if (type === 'retention') {
                 const value = parseInt(document.getElementById('setting-retention').value);
@@ -1815,8 +1833,8 @@
             document.getElementById('current-user').textContent = `User: ${user.id} - ${user.name}`;
             document.getElementById('user-role-display').textContent = user.role === 'admin' ? '👑 Admin' : '👤 User';
             
-            document.getElementById('jam-masuk-display').textContent = `Batas ${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
-            document.getElementById('jam-pulang-display').textContent = `Mulai ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+            document.getElementById('jam-masuk-display').textContent = `Batas ${fmtHHMM(CONFIG.JAM_MASUK_MAX)}`;
+            document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(CONFIG.JAM_PULANG_MIN)}`;
             
             updateUserStatusUI(user.status);
             
@@ -2517,7 +2535,7 @@
                         <td class="p-2 capitalize">${item.jenis_absen}</td>
                         <td class="p-2 font-bold ${statusClass}">${item.status}</td>
                         <td class="p-2">${item.face_score ? Math.round(item.face_score * 100) + '%' : '-'}</td>
-                        <td class="p-2">${item.jarak}m</td>
+                        <td class="p-2">${item.jarak != null ? item.jarak + 'm' : '-'}</td>
                     </tr>
                 `;
             });
@@ -2772,8 +2790,8 @@
         function showSettings() {
             document.getElementById('settings-modal').classList.remove('hidden');
             document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
-            document.getElementById('setting-masuk').value = `${String(CONFIG.JAM_MASUK_MAX).padStart(2,'0')}:00`;
-            document.getElementById('setting-pulang').value = `${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`;
+            document.getElementById('setting-masuk').value = fmtHHMM(CONFIG.JAM_MASUK_MAX);
+            document.getElementById('setting-pulang').value = fmtHHMM(CONFIG.JAM_PULANG_MIN);
             document.getElementById('setting-retention').value = localStorage.getItem('retention_months') || 3;
             document.getElementById('setting-face-threshold').value = Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100);
         }
@@ -3249,18 +3267,31 @@
             const localExists = local.some(item => item.tanggal === today && item.jenis_absen === jenis);
             if (localExists) return false;
 
+            // Cek dari cache realtime (sudah difilter per user) bila tersedia
+            if (Array.isArray(window._realtimeUserAbsensi)) {
+                const cachedExists = window._realtimeUserAbsensi.some(item =>
+                    item.tanggal === today && item.jenis_absen === jenis
+                );
+                if (cachedExists) return false;
+            }
+
             if (firebaseConnected) {
                 try {
                     const db = firebase.firestore();
+                    // Query 1 field saja (tanpa composite index) lalu filter tanggal/jenis di JS,
+                    // agar tidak gagal di Firebase free plan yang belum membuat index komposit.
                     const snapshot = await db.collection('absensi')
                         .where('user_id', '==', currentUser.id)
-                        .where('tanggal', '==', today)
-                        .where('jenis_absen', '==', jenis)
-                        .limit(1)
+                        .limit(1000)
                         .get();
-                    if (!snapshot.empty) return false;
+                    let cloudExists = false;
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        if (d.tanggal === today && d.jenis_absen === jenis) cloudExists = true;
+                    });
+                    if (cloudExists) return false;
                 } catch (error) {
-                    // Jangan menggagalkan absensi hanya karena query cloud membutuhkan index/rules.
+                    // Jangan menggagalkan absensi hanya karena query cloud butuh index/rules.
                     console.warn('Cloud duplicate check skipped:', error.message);
                 }
             }
@@ -3329,14 +3360,16 @@
             const hour = now.getHours();
             const minute = now.getMinutes();
 
+            const nowMinutes = hour * 60 + minute;
+
             if (jenis === 'masuk') {
-                if (hour > CONFIG.JAM_MASUK_MAX || (hour === CONFIG.JAM_MASUK_MAX && minute > 0)) {
+                if (nowMinutes > CONFIG.JAM_MASUK_MAX) {
                     faceVerificationStep(jenis, jarakDibulatkan, 'Terlambat');
                 } else {
                     faceVerificationStep(jenis, jarakDibulatkan, 'Tepat Waktu');
                 }
             } else if (jenis === 'pulang') {
-                if (hour < CONFIG.JAM_PULANG_MIN) {
+                if (nowMinutes < CONFIG.JAM_PULANG_MIN) {
                     hideLoading();
                     Swal.fire({
                         icon: 'error',
@@ -3398,7 +3431,7 @@
             setTimeout(async () => {
                 try {
                     const now = new Date();
-                    const waktu = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const waktu = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     const tanggal = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 
                     const data = {
@@ -3414,7 +3447,7 @@
                         lat: currentPosition.lat,
                         lng: currentPosition.lng,
                         timestamp: now.toISOString(),
-                        is_audit: faceScore < 0.6
+                        is_audit: faceScore < CONFIG.FACE_SIMILARITY_THRESHOLD
                     };
 
                     await saveAbsensi(data);
