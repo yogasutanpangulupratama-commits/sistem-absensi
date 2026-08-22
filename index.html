@@ -806,6 +806,13 @@
                 </div>
                 <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
                     <label class="text-sm font-semibold block">
+                        <i class="fas fa-calendar-day text-orange-500 mr-1"></i>Jam Pulang Minimal <span class="text-orange-600">(Minggu)</span>
+                    </label>
+                    <input type="time" id="setting-pulang-minggu" class="w-full px-3 py-2 rounded-lg border text-sm" value="13:00">
+                    <button onclick="updateSetting('pulang_minggu')" class="mt-2 px-4 py-1 bg-orange-600 text-white rounded-lg text-sm">Update</button>
+                </div>
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl">
+                    <label class="text-sm font-semibold block">
                         <i class="fas fa-clock mr-2"></i>Hapus Data Otomatis (bulan)
                     </label>
                     <select id="setting-retention" class="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-700">
@@ -1057,6 +1064,8 @@
                         if (masukMins != null) CONFIG.JAM_MASUK_MAX = masukMins;
                         const pulangMins = toMinutesSinceMidnight(cfg.jam_pulang);
                         if (pulangMins != null) CONFIG.JAM_PULANG_MIN = pulangMins;
+                        const pulangMingguMins = toMinutesSinceMidnight(cfg.jam_pulang_minggu);
+                        if (pulangMingguMins != null) CONFIG.JAM_PULANG_MIN_MINGGU = pulangMingguMins;
                         if (cfg.face_threshold != null) CONFIG.FACE_SIMILARITY_THRESHOLD = parseInt(cfg.face_threshold) / 100;
                         loadConfigFromDB();
                     }, err => console.warn('Realtime settings:', err.message));
@@ -1364,6 +1373,7 @@
             RADIUS_MAKSIMAL: 20,
             JAM_MASUK_MAX: 480,  // 08:00 (menit sejak tengah malam)
             JAM_PULANG_MIN: 960, // 16:00 (menit sejak tengah malam)
+            JAM_PULANG_MIN_MINGGU: 780, // 13:00 (menit sejak tengah malam) - default Minggu
             FACE_SIMILARITY_THRESHOLD: 0.6,
             IMAGE_QUALITY: 0.5,
             IMAGE_WIDTH: 320,
@@ -1380,6 +1390,17 @@
         function fmtHHMM(mins) {
             const m = Math.max(0, parseInt(mins) || 0);
             return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+        }
+
+        // Update tampilan jam pulang - tampilkan jam Minggu jika hari ini Minggu
+        function updatePulangDisplay() {
+            const today = new Date();
+            const isMinggu = today.getDay() === 0;
+            if (isMinggu) {
+                document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(CONFIG.JAM_PULANG_MIN_MINGGU)} (Minggu)`;
+            } else {
+                document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(CONFIG.JAM_PULANG_MIN)}`;
+            }
         }
 
         // Load config: prioritaskan Firestore (online, sinkron semua device), fallback ke IndexedDB lokal
@@ -1407,6 +1428,10 @@
                 const jamPulangMins = toMinutesSinceMidnight(jamPulang);
                 if (jamPulangMins != null) CONFIG.JAM_PULANG_MIN = jamPulangMins;
 
+                const jamPulangMinggu = remoteConfig?.jam_pulang_minggu ?? await getConfig('jam_pulang_minggu');
+                const jamPulangMingguMins = toMinutesSinceMidnight(jamPulangMinggu);
+                if (jamPulangMingguMins != null) CONFIG.JAM_PULANG_MIN_MINGGU = jamPulangMingguMins;
+
                 const threshold = remoteConfig?.face_threshold ?? await getConfig('face_threshold');
                 if (threshold !== null && threshold !== undefined) CONFIG.FACE_SIMILARITY_THRESHOLD = parseInt(threshold) / 100;
 
@@ -1426,7 +1451,7 @@
                 const radiusBadgeEl = document.getElementById('radius-badge');
                 if (radiusBadgeEl) radiusBadgeEl.textContent = `Radius ${CONFIG.RADIUS_MAKSIMAL}m`;
                 document.getElementById('jam-masuk-display').textContent = `Batas ${fmtHHMM(CONFIG.JAM_MASUK_MAX)}`;
-                document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(CONFIG.JAM_PULANG_MIN)}`;
+                updatePulangDisplay();
                 
             } catch (error) {
                 console.warn('Error loading config:', error);
@@ -1463,8 +1488,16 @@
                 const pulangMins = (ph || 0) * 60 + (pm || 0);
                 CONFIG.JAM_PULANG_MIN = pulangMins;
                 await saveConfig('jam_pulang', pulangMins);
-                document.getElementById('jam-pulang-display').textContent = `Mulai ${fmtHHMM(pulangMins)}`;
+                updatePulangDisplay();
                 Swal.fire({ icon: 'success', title: 'Jam Pulang Diperbarui', text: `${value} (tersimpan permanen)`, timer: 2000 });
+            } else if (type === 'pulang_minggu') {
+                const value = document.getElementById('setting-pulang-minggu').value;
+                const [ph, pm] = value.split(':').map(Number);
+                const pulangMingguMins = (ph || 0) * 60 + (pm || 0);
+                CONFIG.JAM_PULANG_MIN_MINGGU = pulangMingguMins;
+                await saveConfig('jam_pulang_minggu', pulangMingguMins);
+                updatePulangDisplay();
+                Swal.fire({ icon: 'success', title: 'Jam Pulang Minggu Diperbarui', text: `${value} (tersimpan permanen)`, timer: 2000 });
             } else if (type === 'retention') {
                 const value = parseInt(document.getElementById('setting-retention').value);
                 localStorage.setItem('retention_months', value);
@@ -2792,6 +2825,7 @@
             document.getElementById('setting-radius').value = CONFIG.RADIUS_MAKSIMAL;
             document.getElementById('setting-masuk').value = fmtHHMM(CONFIG.JAM_MASUK_MAX);
             document.getElementById('setting-pulang').value = fmtHHMM(CONFIG.JAM_PULANG_MIN);
+            document.getElementById('setting-pulang-minggu').value = fmtHHMM(CONFIG.JAM_PULANG_MIN_MINGGU);
             document.getElementById('setting-retention').value = localStorage.getItem('retention_months') || 3;
             document.getElementById('setting-face-threshold').value = Math.round(CONFIG.FACE_SIMILARITY_THRESHOLD * 100);
         }
@@ -3369,12 +3403,13 @@
                     faceVerificationStep(jenis, jarakDibulatkan, 'Tepat Waktu');
                 }
             } else if (jenis === 'pulang') {
-                if (nowMinutes < CONFIG.JAM_PULANG_MIN) {
+                const jamPulangHariIni = (now.getDay() === 0) ? CONFIG.JAM_PULANG_MIN_MINGGU : CONFIG.JAM_PULANG_MIN;
+                if (nowMinutes < jamPulangHariIni) {
                     hideLoading();
                     Swal.fire({
                         icon: 'error',
                         title: 'Belum Waktunya Pulang',
-                        text: `Jam pulang dimulai pukul ${String(CONFIG.JAM_PULANG_MIN).padStart(2,'0')}:00`
+                        text: `Jam pulang dimulai pukul ${fmtHHMM(jamPulangHariIni)}${now.getDay() === 0 ? ' (Minggu)' : ''}`
                     });
                     return;
                 } else {
